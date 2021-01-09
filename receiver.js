@@ -1,12 +1,9 @@
 "use strict"
 
-var PeerConnection
+var PeerConnection = null
+    , baseDir = null
     , fs = require('fs')
-    , baseDir = 'tmp/SimplePeerCallee/'
-    , createWebsocket = require('./websocket.js')
 ;
-
-//function offerProcessor(offer) {
   function offerProcessor(offer, username) {
   return new Promise(async (resolve, reject) => {
     let peerConnection = new PeerConnection('receiver');
@@ -29,9 +26,13 @@ var PeerConnection
             //resolve();
           }
         } else if(cmd.action == 'add') {
-          let outStream = (require('fs')).createWriteStream(baseDir + cmd.file,
+          let outStream = fs.createWriteStream(baseDir + cmd.file,
             {autoClose: false, emitClose: true})
-          peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd}));
+          try {
+            peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd}));
+          } catch(e) {
+            console.error('peer.send error:', e)
+          }
 
           outStream.on('finish', () => {
             console.log('outStream finish')     
@@ -55,12 +56,10 @@ var PeerConnection
   })
 }
 
-const awsBrumeServer = "wss://q9ztgt7lac.execute-api.us-east-1.amazonaws.com/Prod"
-      , localBrumeServer = "ws://localhost:8080"
-;
-
-(async function() {
-  let ws = await createWebsocket(awsBrumeServer, 'callee')
-  PeerConnection = require('./makePeerConnection.js')(ws, 'callee')
+function receiver({PeerConnection: _pc, baseDir: _bd}) {
+  PeerConnection = _pc
+  baseDir = _bd
   PeerConnection.offerProcessor = offerProcessor
-})()
+}
+
+module.exports = receiver

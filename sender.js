@@ -1,22 +1,12 @@
-"use strict"
-const jwt = require("jsonwebtoken")
-      , {token, groupInfo} = require("bobConfig.js")
-      , username = jwt.decode(token).username
-      , TimedQueue = require('./TimedQueue.js')
+const TimedQueue = require('./TimedQueue.js')
+      , {dirWatcher, EventQueue} = require('./fileWatcher.js')
 ;
 
 var PeerConnection
-    , {dirWatcher, EventQueue} = require('./fileWatcher.js')
-    , baseDir = 'tmp/SimplePeerCaller/'
-    , groupInfo = {
-        group1: { members: ["callee"] }
-    }
-    , memberInfo = {
-      callee: {active: true, lastDelay: 0}
-    }
-    , createWebsocket = require('./websocket.js')
+    , groupInfo = {}
+    , memberInfo = {}
+    , baseDir = null
 ;
-
 async function doCommand(name, cmd){
   return new Promise(async (resolve, reject) => {
     let peerConnection = new PeerConnection('sender');
@@ -109,30 +99,25 @@ async function eventQueueProcessor(qEntry) {
   }
 }
 
-const awsBrumeServer = "wss://q9ztgt7lac.execute-api.us-east-1.amazonaws.com/Prod"
-      , localBrumeServer = "ws://localhost:8080"
-;
-
-async function main() {
-  var ws;
-  try {
-    //
-    ws = await createWebsocket(awsBrumeServer, username)
-    PeerConnection = require('./makePeerConnection.js')(ws, username)
-    eventQueue = new EventQueue(eventQueueProcessor)
-    let watcher = dirWatcher(baseDir)
-    watcher.on('event', (eType, file, fileType) => {
-      // Remove queued events for this file
-      eventQueue.remove(e => {return e.file === file})
-
-      // Enqueue the new file action and fire an event
-      eventQueue.push({action: eType, file: file.slice(baseDir.length), type: fileType})
-    })
-  } catch (e) {
-    console.log('createWebsocket error:', e)
-    e.main = main
-    errorHandler(e);
+function sender({PeerConnection: _pc, groupInfo: _gi, baseDir: _bd, username}) {
+  PeerConnection = _pc
+  groupInfo = _gi
+  baseDir = _bd
+  
+  for(let g in groupInfo){
+     groupInfo[g].members.forEach(e => memberInfo[e] = {active: true, lastDelay: 0})
   }
+
+  eventQueue = new EventQueue(eventQueueProcessor)
+  let watcher = dirWatcher(baseDir + username + '/')
+  watcher.on('event', (eType, file, fileType) => {
+    // Remove queued events for this file
+    eventQueue.remove(e => {return e.file === file})
+
+    // Enqueue the new file action and fire an event
+    eventQueue.push({action: eType, file: file.slice(baseDir.length), type: fileType})
+  })
+
 }
 
-main()
+module.exports=sender
