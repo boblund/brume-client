@@ -9,6 +9,7 @@ var PeerConnection = null
     let peerConnection = new PeerConnection('receiver');
     let peerPromise = (peerConnection.open)(username, offer)
     let peer = await peerPromise
+
     try {
       peer.once('data', async data => {
         let cmd = JSON.parse(data.toString())

@@ -53,6 +53,7 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
       PeerConnection.peers[peerName] = this //.peer
       if(this.#type == 'receiver') {
         if(offer) {
+          this.peer.channelName = offer.channelName;
           this.peer.signal(offer);
         } else {
           console.log('Instance of PeerConnection receiver requires offer to open')
@@ -61,6 +62,7 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
       }
       try {
         this.peer.on('offer', data => {
+          data.channelName = this.peer.channelName
           PeerConnection.signallingServer
             .sendMsg({action: 'send', data: data, from: PeerConnection.myName, to: this.peerName})
           this.offerTimer = setTimeout(() => {
@@ -69,6 +71,7 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
         });
 
         this.peer.on('answer', data => {
+          data.channelName = this.peer.channelName
           PeerConnection.signallingServer.sendMsg(
             {action: 'send', data: data, from: PeerConnection.myName, to: this.peerName})
           this.#answerTimer = setTimeout(() => {
@@ -106,6 +109,7 @@ function makePeerConnection(ws, name) {
   //create Event Queue and 'enqueue' handler that calls offerProcessor
   
   PeerConnection.signallingServer.on('answer', (data) => {
+    //if(PeerConnection.peers[data.data.channelName]) {
     if(PeerConnection.peers[data.from]) {
       clearTimeout(PeerConnection.peers[data.from].offerTimer)
       PeerConnection.peers[data.from].peer.signal(data.data)
