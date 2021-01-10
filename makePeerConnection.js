@@ -64,8 +64,10 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
         this.peer.on('offer', data => {
           data.channelName = this.peer.channelName
           PeerConnection.signallingServer
-            .sendMsg({action: 'send', data: data, from: PeerConnection.myName, to: this.peerName})
-          this.offerTimer = setTimeout(() => {
+            .sendMsg({action: 'send', data: data, to: this.peerName})
+            //.sendMsg({action: 'send', data: data, from: PeerConnection.myName, to: this.peerName})
+
+            this.offerTimer = setTimeout(() => {
             reject({type: 'EOFFERTIMEOUT', peerName: this.peerName})
             }, PeerConnection.#OFFERTIMEOUT)
         });
@@ -73,8 +75,10 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
         this.peer.on('answer', data => {
           data.channelName = this.peer.channelName
           PeerConnection.signallingServer.sendMsg(
-            {action: 'send', data: data, from: PeerConnection.myName, to: this.peerName})
-          this.#answerTimer = setTimeout(() => {
+            {action: 'send', data: data, to: this.peerName})
+            //{action: 'send', data: data, from: PeerConnection.myName, to: this.peerName})
+
+            this.#answerTimer = setTimeout(() => {
             reject({type: 'EANSWERTIMEOUT', peerName: this.peerName})
            }, PeerConnection.#ANSWERTIMEOUT)
         });
