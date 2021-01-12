@@ -21,18 +21,19 @@ async function main() {
   try {
     var ws = await createWebsocket(localBrumeServer, username, token)
     var PeerConnection = require('./makePeerConnection.js')(ws, username)
-    /*if(username == 'bob')*/sender({
+    sender({
       PeerConnection: PeerConnection
-      , groupInfo: groupInfo
+      , groupInfo: groupInfo.sender
       , baseDir: baseDir
       , username: username
     })
-    /*if(username == 'alice')*/receiver({
+    receiver({
       PeerConnection: PeerConnection
       , baseDir: baseDir
+      , groupInfo: groupInfo.receiver
     })
   } catch(e) {
-    console.error("createWebsocket error:",e.code, ". Retry in one hour")
+    console.error("createWebsocket error:",e, ". Retry in one hour")
     setTimeout(main, 60*60*1000)
   }
 }

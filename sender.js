@@ -22,7 +22,10 @@ async function doCommand(name, cmd){
         //}
       })
 
-      peer.on('close', () => {})
+      peer.on('close', () => {
+        console.log('peer', peer._id, ' closed')
+        resolve({type: 'SUCCESS'})
+      })
 
       if(cmd.action == 'delete') {
         peer.send(JSON.stringify(cmd));

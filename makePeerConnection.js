@@ -29,8 +29,8 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
   static offerProcessor
   //static queueProcessor
   static myName
-  static #OFFERTIMEOUT=60*1000
-  static #ANSWERTIMEOUT=60*1000 
+  static #OFFERTIMEOUT=60*60*1000
+  static #ANSWERTIMEOUT=60*60*1000 
 
   #type = null
   offerTimer = null
@@ -126,9 +126,9 @@ function makePeerConnection(ws, name) {
     PeerConnection.peers[otherPeerName].peer.emit('error', {type: error, peerName: otherPeerName});
   })
 
-  PeerConnection.signallingServer.on('offer', (data) => {
+  PeerConnection.signallingServer.on('offer', async (data) => {
     //Add data.offer, data.username to Event Queue
-    PeerConnection.offerProcessor(data.data, data.from);
+    await PeerConnection.offerProcessor(data.data, data.from);
   })
 
   return PeerConnection

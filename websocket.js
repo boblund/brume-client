@@ -4,12 +4,7 @@ function createWebsocket(url, name, token) {
   return new Promise((resolve, reject) => {
     var ws
 
-    try {
-      ws = new (require('ws'))(url, {headers : { token: token}});
-    } catch(e) {
-      return reject(e)
-    }
-
+    ws = new (require('ws'))(url, {headers : { token: token}});
     ws._id_ = Math.random().toString(36).slice(2)
 
     const sendMsg = message => {
@@ -31,7 +26,7 @@ function createWebsocket(url, name, token) {
     }
 
     ws.on('error', err => {
-      reject({type: err.code})
+      reject({code: err.code, message: err.message})
     })
 
     ws.onmessage = msg => {
