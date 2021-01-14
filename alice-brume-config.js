@@ -20,7 +20,7 @@ groupInfo = {
   }
 
   ,receiver: {
-    bob: {groups: ["group10"]}
+    bob: {groups: ["group1"]}
   }
 }
 module.exports = {

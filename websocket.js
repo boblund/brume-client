@@ -22,11 +22,13 @@ function createWebsocket(url, name, token) {
 
     ws.onopen = () => {
       console.log('Connected to the signaling server');
+      resolve(ws)
 //      login();
     }
 
     ws.on('error', err => {
-      reject({code: err.code, message: err.message})
+      //check for err.code first
+      reject({code: JSON.parse(err.message.match('.*: \(.*\)')[1]), message: err.message})
     })
 
     ws.onmessage = msg => {
@@ -34,13 +36,13 @@ function createWebsocket(url, name, token) {
       console.log('Got message', data.type)
 
       switch (data.type) {
-        case 'connect':
+/*        case 'connect':
           if(data.success) {
             resolve(ws)
           } else {
             reject({code:'EUKNOWNUSER'})
           }
-          break
+          break*/
 
         case 'msg':
           ws.emit(data.data.type, data)

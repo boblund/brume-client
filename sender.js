@@ -14,6 +14,7 @@ async function doCommand(name, cmd){
       let result = {};
       let peer = await peerConnection.open(name)
 
+      // Receiver no longer sends response - take out
       peer.on('data', (data) => {
         result = JSON.parse(data.toString())
         //if(cmd.action == 'delete') {
