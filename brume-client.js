@@ -9,7 +9,7 @@ const configFile = "./" + process.argv[2] +"-brume-config.js"
 const {token, username, baseDir, groupInfo} = require(configFile)
 const createWebsocket = require('./websocket.js')
 
-const awsBrumeServer = "wss://uljyi1yhve.execute-api.us-east-1.amazonaws.com/Prod"
+const awsBrumeServer = "wss://wkiw3ej74c.execute-api.us-east-1.amazonaws.com/Prod"
       , localBrumeServer = "ws://localhost:8080"
 ;
 

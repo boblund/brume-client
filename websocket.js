@@ -31,6 +31,10 @@ function createWebsocket(url, name, token) {
       reject({code: JSON.parse(err.message.match('.*: \(.*\)')[1]), message: err.message})
     })
 
+    ws.on('close', m => {
+      console.log('server close:', m)
+    })
+
     ws.onmessage = msg => {
       const data = JSON.parse(msg.data)
       console.log('Got message', data.type)
