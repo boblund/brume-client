@@ -59,7 +59,7 @@ try {
   var {baseDir} = JSON.parse(fs.readFileSync(configFile, 'utf-8'))
   baseDir = baseDir.replace('./','')
   var {token, url} = JSON.parse(fs.readFileSync(baseDir + '/.wsserver.json', 'utf-8'))
-  url = 'ws://localhost:8080'
+  url = process.env.LOCAL ? 'ws://localhost:' + process.env.LOCAL : url
 } catch(e) {
   console.error('error reading config file:', e)
   process.exit(1)
