@@ -28,6 +28,10 @@ async function doCommand(name, cmd){
         resolve({type: 'SUCCESS'})
       })
 
+      peer.on('error', e => {
+        reject(e)
+      })
+
       if(cmd.action == 'delete') {
         peer.send(JSON.stringify(cmd));
       } else if(cmd.action == 'add') {
@@ -40,7 +44,7 @@ async function doCommand(name, cmd){
         inStream.pipe(peer);
       }  
     } catch (err) {
-      console.log('error', err)
+      //console.log('error', err)
       reject(err);
     }
   })
@@ -50,18 +54,14 @@ var timedQueue = new (require('./TimedQueue.js'))()
     , eventQueue = null
 ;
 
-const TQECONNREFUSED = 60*60*1000
-      , TQENODEST = 60*60*1000
+const TQENODEST = 60*60*1000
       , TQEOFFERTIMEOUT = 60*60*1000
 ;
 
 function errorHandler(err) {
-  console.log('errorHandler err', err)
-  switch(err.type) {
-    case 'ECONNREFUSED':
-      timedQueue.push(err.main,TQECONNREFUSED)
-      break;
-
+  //console.log('errorHandler err', err)
+  switch(err.code) {
+    //replaced by check in brume-client
       case 'ENODEST':
       memberInfo[err.peerName].active = false;
       timedQueue.push(() => {
@@ -79,13 +79,9 @@ function errorHandler(err) {
           eventQueue.push(err.cmd)
         }, TQEOFFERTIMEOUT) 
         break;
-    
-    case 'EANSWERTIMEOUT':
-    case 'EUNLINK':
-      break;
 
     default:
-      console.error('unknown error:');
+      console.error('unknown error:', err);
   }
 }
 

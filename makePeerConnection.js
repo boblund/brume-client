@@ -7,8 +7,16 @@ var SimplePeer = require('simple-peer')
 
 function createPeer(type) {
   var peerOptions = {
-        sender: {initiator: true, channelName: Math.random().toString(36).slice(2), wrtc: wrtc}
-        , receiver: {wrtc: wrtc}
+        sender: {
+          initiator: true
+          , trickle: false
+          , channelName: Math.random().toString(36).slice(2)
+          , wrtc: wrtc
+        }
+        ,receiver: {
+          trickle: false
+          , wrtc: wrtc
+        }
   }
 
   var peer =  new SimplePeer(peerOptions[type]);
@@ -29,12 +37,9 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
   static offerProcessor
   //static queueProcessor
   static myName
-  static #OFFERTIMEOUT=60*60*1000
-  static #ANSWERTIMEOUT=60*60*1000 
-
+  static #OFFERTIMEOUT=60*1000
   #type = null
   offerTimer = null
-  #answerTimer = null
   peer = null
   peerName = null
   #sender = null;
@@ -56,52 +61,48 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
           this.peer.channelName = offer.channelName;
           this.peer.signal(offer);
         } else {
-          console.log('Instance of PeerConnection receiver requires offer to open')
-          reject({type: 'ENOOFFERPROCESSOR'})
+          console.error('FATAL error. Receiver requires offerprocessor')
+          process.exit(1)
         }
       }
       try {
         this.peer.on('offer', data => {
           data.channelName = this.peer.channelName
-          PeerConnection.signallingServer
-            .sendMsg({action: 'send', data: data, to: this.peerName})
-            //.sendMsg({action: 'send', data: data, from: PeerConnection.myName, to: this.peerName})
-
-            this.offerTimer = setTimeout(() => {
-            reject({type: 'EOFFERTIMEOUT', peerName: this.peerName})
-            }, PeerConnection.#OFFERTIMEOUT)
+          PeerConnection.signallingServer.sendMsg(
+            {action: 'send', data: data, to: this.peerName})
+/*          this.offerTimer = setTimeout(() => {
+            reject({code: 'EOFFERTIMEOUT', peerName: this.peerName})
+            console.log('offer timeout. destroying peer')
+            PeerConnection.peers[this.peerName].peer.destroy()
+            delete PeerConnection.peers[this.peerName]
+          }, PeerConnection.#OFFERTIMEOUT)*/
         });
 
         this.peer.on('answer', data => {
           data.channelName = this.peer.channelName
-          PeerConnection.signallingServer.sendMsg(
-            {action: 'send', data: data, to: this.peerName})
-            //{action: 'send', data: data, from: PeerConnection.myName, to: this.peerName})
-
-            this.#answerTimer = setTimeout(() => {
-            reject({type: 'EANSWERTIMEOUT', peerName: this.peerName})
-           }, PeerConnection.#ANSWERTIMEOUT)
+          try {
+            PeerConnection.signallingServer.sendMsg(
+              {action: 'send', data: data, to: this.peerName})
+          } catch(e) {
+            console.error('send answer error', this.peerName, e.code)
+          }
         });
 
         this.peer.on('connect', () => {
-          // cancel "EANSWERREFUSED" timer if receiver
-          clearTimeout(this.#answerTimer)
-          //console.log('%s peer[%s] connected', this.#type, this.peer.channelName)
           resolve(this.peer)
         })
 
         this.peer.on('close', () => {
-          //console.log('peer[%s] closed', this.peer.channelName);
+          console.log('peer[%s] closed', this.peer.channelName);
+          
         })
 
         this.peer.on('error', (e) => {
-          //console.log('peer error:', e);
+          console.log('peer error')
           reject(e);
         })
       } catch (e) {
-        reject({result: err, peerName: this.peerName})
-        // ENCONNREFUSE
-        // EANSWERTIMEOUT        
+        reject(e)        
       }
     })
   }
@@ -122,8 +123,8 @@ function makePeerConnection(ws, name) {
     }
   })
 
-  PeerConnection.signallingServer.on('error', (error, otherPeerName, sender) => {
-    PeerConnection.peers[otherPeerName].peer.emit('error', {type: error, peerName: otherPeerName});
+  PeerConnection.signallingServer.on('peerError', (error) => {
+    PeerConnection.peers[error.peerName].peer.emit('error', error);
   })
 
   PeerConnection.signallingServer.on('offer', async (data) => {
