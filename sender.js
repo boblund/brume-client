@@ -24,11 +24,14 @@ async function doCommand(name, cmd){
       })
 
       peer.on('close', () => {
-        console.log('peer', peer._id, ' closed')
+        console.log('peer close:', peer.channelName /*username*/);
+        peer.destroy()
         resolve({type: 'SUCCESS'})
       })
 
       peer.on('error', e => {
+        console.log('remote peer error:', peer.channelName /*username*/);
+        peer.destroy()
         reject(e)
       })
 

@@ -67,7 +67,11 @@ function createWebsocket(url, name, token) {
 
         case 'peerError':
           //ENODEST
-          ws.emit('peerError', {code: data.code, peerName: data.edata.receiver})
+          ws.emit('peerError', {
+            code: data.code
+            , peerName: data.edata.receiver
+            , channelName: data.edata.channelName
+          })
           break
 
         default:

@@ -36,13 +36,13 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
   static peers = {}
   static offerProcessor
   //static queueProcessor
-  static myName
+  //static myName
   static #OFFERTIMEOUT=60*1000
   #type = null
   offerTimer = null
   peer = null
   peerName = null
-  #sender = null;
+ 
 
   constructor(type) {
     //super()
@@ -55,13 +55,17 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
     return new Promise(async (resolve, reject) => {
       this.peer = createPeer(this.#type);
       this.peerName = peerName;
-      PeerConnection.peers[peerName] = this //.peer
+      //PeerConnection.peers[peerName] = this //.peer
+      if(this.#type == 'sender'){
+        PeerConnection.peers[this.peer.channelName] = this
+      }
       if(this.#type == 'receiver') {
         if(offer) {
           this.peer.channelName = offer.channelName;
+          PeerConnection.peers[offer.channelName] = this
           this.peer.signal(offer);
         } else {
-          console.error('FATAL error. Receiver requires offerprocessor')
+          console.error('FATAL error. Receiver peerConnection.open without offer')
           process.exit(1)
         }
       }
@@ -93,7 +97,8 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
         })
 
         this.peer.on('close', () => {
-          console.log('peer[%s] closed', this.peer.channelName);
+          delete PeerConnection[this.peer.channelName]
+          console.log('PeerConnection[%s] deleted', this.peer.channelName);
           
         })
 
@@ -109,22 +114,24 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
 }
 
 function makePeerConnection(ws, name) {
-  PeerConnection.myName = name;
+  //PeerConnection.myName = name;
   PeerConnection.signallingServer = ws
   //create Event Queue and 'enqueue' handler that calls offerProcessor
   
   PeerConnection.signallingServer.on('answer', (data) => {
-    //if(PeerConnection.peers[data.data.channelName]) {
-    if(PeerConnection.peers[data.from]) {
-      clearTimeout(PeerConnection.peers[data.from].offerTimer)
-      PeerConnection.peers[data.from].peer.signal(data.data)
+    if(PeerConnection.peers[data.data.channelName]) {
+    //if(PeerConnection.peers[data.from]) {
+      //clearTimeout(PeerConnection.peers[data.from].offerTimer)
+      //PeerConnection.peers[data.data.channelName].peer.signal(data.data)
+      PeerConnection.peers[data.data.channelName].peer.signal(data.data)
     } else {
       console.log('No peer for %s', data.from)
     }
   })
 
   PeerConnection.signallingServer.on('peerError', (error) => {
-    PeerConnection.peers[error.peerName].peer.emit('error', error);
+    PeerConnection.peers[error.channelName].peer.emit('error', error);
+    //PeerConnection.peers[error.peerName].peer.emit('error', error);
   })
 
   PeerConnection.signallingServer.on('offer', async (data) => {

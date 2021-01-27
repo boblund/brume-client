@@ -31,6 +31,7 @@ var PeerConnection = null
           } catch (err) {
           } finally {
             console.log('delete:', cmd.file)
+            console.log('delete done for:', peer.channelName /*username*/);
             peer.destroy();
             resolve();
           }
@@ -40,15 +41,16 @@ var PeerConnection = null
 
           outStream.on('finish', () => {
             console.log('add:', cmd.file)
-            peer.destroy()     
-            resolve()
+            //console.log('outStream finish for:', peer.channelName /*username*/);
+            //peer.destroy()     
+            //resolve()
           }) 
           peer.pipe(outStream);
         }          
       })
 
       peer.on('close', () => {
-        console.log('remote peer close:', username);
+        console.log('remote peer close:', peer.channelName /*username*/);
         peer.destroy()
         resolve();
       })
