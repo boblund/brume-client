@@ -28,41 +28,33 @@ var PeerConnection = null
         if(cmd.action == 'delete') {
           try {
             await fs.promises.unlink(baseDir + cmd.file)
-            //peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd}));
           } catch (err) {
-            //peer.send(JSON.stringify({type: 'EUNLINK', cmd: cmd}));
           } finally {
-            console.log('delete done')
+            console.log('delete:', cmd.file)
             peer.destroy();
             resolve();
           }
         } else if(cmd.action == 'add') {
           let outStream = fs.createWriteStream(baseDir + cmd.file,
             {autoClose: false, emitClose: true})
-          /*try {
-            peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd}));
-          } catch(e) {
-            console.error('peer.send error:', e)
-          }*/
 
           outStream.on('finish', () => {
-            //console.log('outStream finish')     
+            console.log('add:', cmd.file)
+            peer.destroy()     
             resolve()
           }) 
-
           peer.pipe(outStream);
         }          
       })
 
       peer.on('close', () => {
-        console.log('peer _id %s channelName %s closed\n', peer._id, peer.channelName);
+        console.log('remote peer close:', username);
+        peer.destroy()
         resolve();
       })
 
     } catch (err) {
-      console.log('error', err)
-      //EANSWERTIMEOUT
-      peer.send(JSON.stringify({type: 'EANSWERTIMEOUT', cmd: cmd}))
+      console.error('offerProcessor error', err)
     }
   })
 }

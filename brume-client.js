@@ -93,10 +93,9 @@ async function main() {
       , groupInfo: groupInfo.receiver
     })
   } catch(e) {
-    console.error("createWebsocket error:",e, ". Retry in one hour")
+    console.error("createWebsocket error:",e.code, ". Retry in one hour")
     setTimeout(main, 60*60*1000)
   }
 }
 
 main()
-

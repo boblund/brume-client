@@ -27,8 +27,25 @@ function createWebsocket(url, name, token) {
     }
 
     ws.on('error', err => {
-      //check for err.code first
-      reject({code: JSON.parse(err.message.match('.*: \(.*\)')[1]), message: err.message})
+      let code = ''
+      if(err.code) {
+        if(err.code == 'ECONNREFUSED') {
+          reject(err)
+          return
+        } else {
+          code = err.code
+        }
+      } else {
+        //connect error
+        code = JSON.parse(err.message.match('.*: \(.*\)')[1])
+      }
+
+      if(code == 401) {
+        console.log('reauthorize')
+      } else {
+        console.error(err.message)
+      }
+      process.exit(1)
     })
 
     ws.on('close', m => {
@@ -40,35 +57,23 @@ function createWebsocket(url, name, token) {
       console.log('Got message', data.type)
 
       switch (data.type) {
-/*        case 'connect':
-          if(data.success) {
-            resolve(ws)
-          } else {
-            reject({code:'EUKNOWNUSER'})
-          }
-          break*/
-
         case 'msg':
           ws.emit(data.data.type, data)
           break
 
         case 'close':
-          handleClose()
+          console.error('unhandled close')
           break
 
-        case 'ENODEST':
-          //reject('ENODEST', data.otherUsername)
-          ws.emit('error', 'ENODEST', data.otherUsername, data.sender)
+        case 'peerError':
+          //ENODEST
+          ws.emit('peerError', {code: data.code, peerName: data.edata.receiver})
           break
 
         default:
           console.log('unknown message type:', data)
           break
       }
-    }
-
-    const handleClose = () => {
-
     }
   })
 }
