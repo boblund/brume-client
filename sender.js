@@ -1,126 +1,142 @@
-const TimedQueue = require('./TimedQueue.js')
-      , {dirWatcher, EventQueue} = require('./fileWatcher.js')
-;
+var global = require('./global.js')
+const {dirWatcher, EventQueue, treeWalk} = require('./fileWatcher.js');
+global.eventQueue = EventQueue(eventQueueProcessor)
 
 var PeerConnection
-    , groupInfo = {}
-    , memberInfo = {}
     , baseDir = null
 ;
-async function doCommand(name, cmd){
+async function doCommand(member, cmd){
   return new Promise(async (resolve, reject) => {
     let peerConnection = new PeerConnection('sender');
     try {
       let result = {};
-      let peer = await peerConnection.open(name)
+      let peer = await peerConnection.open(member)
+      console.log(`sender:    ${peer.channelName} peer open ${JSON.stringify(cmd)}`)
 
       // Receiver no longer sends response - take out
       peer.on('data', (data) => {
-        result = JSON.parse(data.toString())
-        //if(cmd.action == 'delete') {
-          console.log('on data result:',result);
-          result.type === "SUCCESS" ? resolve(result) : reject(result)
-        //}
+        console.log(`sender:    ${peer.channelName} on data` )
       })
 
       peer.on('close', () => {
-        console.log('peer close:', peer.channelName /*username*/);
+        console.log(`sender:    ${peer.channelName} peer close\n`);
         peer.destroy()
         resolve({type: 'SUCCESS'})
       })
 
       peer.on('error', e => {
-        console.log('remote peer error:', peer.channelName /*username*/);
+        console.log(`sender:    ${peer.channelName} peer error\n`);
         peer.destroy()
         reject(e)
       })
 
-      if(cmd.action == 'delete') {
-        peer.send(JSON.stringify(cmd));
-      } else if(cmd.action == 'add') {
-        let inStream = (require('fs')).createReadStream(baseDir + cmd.file, 
-          {emitClose: true, autoClose: false})
+      switch(cmd.action) {
+        case 'delete':
+        case 'sync':
+          peer.send(JSON.stringify(cmd));
+          break;
 
-        inStream.on('end', () => {})
+        case 'add':
+          let inStream = (require('fs')).createReadStream(baseDir + cmd.file, 
+            {emitClose: true, autoClose: false})
 
-        peer.send(JSON.stringify(cmd));
-        inStream.pipe(peer);
-      }  
+          inStream.on('end', () => {})
+          peer.send(JSON.stringify(cmd));
+          inStream.pipe(peer);
+          break;
+
+        default:
+          console.error(`sender:    ${peer.channelName} unknown cmd.action ${cmd.action}`)     
+      }    
     } catch (err) {
-      //console.log('error', err)
       reject(err);
     }
   })
 }
 
-var timedQueue = new (require('./TimedQueue.js'))()
-    , eventQueue = null
-;
+var timedQueue = new (require('./TimedQueue.js'))();
 
 const TQENODEST = 60*60*1000
       , TQEOFFERTIMEOUT = 60*60*1000
 ;
 
 function errorHandler(err) {
-  //console.log('errorHandler err', err)
   switch(err.code) {
-    //replaced by check in brume-client
-      case 'ENODEST':
-      memberInfo[err.peerName].active = false;
-      timedQueue.push(() => {
-        memberInfo[err.peerName].active = true;
-        eventQueue.remove(e => {return e.file === err.cmd.file})
-        err.cmd.member = err.cmd.member ? err.cmd.member : err.peerName
-        eventQueue.push(err.cmd)
-      }, TQENODEST)
-      break;
 
-      case 'EOFFERTIMEOUT':
-        timedQueue.push(() => {
-          eventQueue.remove(e => {return e.file === err.cmd.file})
-          err.cmd.member = err.cmd.member ? err.cmd.member : err.peerName
-          eventQueue.push(err.cmd)
-        }, TQEOFFERTIMEOUT) 
-        break;
+      case 'ENODEST':
+        global.groupInfo.memberStatus(err.peerName, 'notconnected')
+        console.error(`sender:    ENODEST ${err.peerName} not connected\n`)
+        break
 
     default:
-      console.error('unknown error:', err);
+      console.error('sender:    unknown error:', err);
   }
 }
 
 async function eventQueueProcessor(qEntry) {
-  let members = qEntry.member ? [qEntry.member] : groupInfo[qEntry.file.match('.*?/(.*?)/.*')[1]].members
-  for(let member of members) {
+  console.log(`sender:    enque ${JSON.stringify(qEntry)}`)
+  let members = qEntry.member
+    ? [qEntry.member]
+    : global.groupInfo.getMembers(qEntry.file.split('/')[1])
+
+  for(let member of members.filter(m => global.groupInfo.memberStatus(m) == 'active')) {
     try {
-      console.log('doCommand result:', JSON.stringify(await doCommand(member, qEntry)))
+      let result = await doCommand(member, qEntry)
+      //console.log('doCommand result:', JSON.stringify(result))
       // Need to check for non SUCCESS results
     } catch (e) {
-      console.log('doCommand error:', e)
       e.cmd = e.cmd ? e.cmd : qEntry
       errorHandler(e);
     }
   }
 }
 
-function sender({PeerConnection: _pc, groupInfo: _gi, baseDir: _bd, username}) {
+function sender({PeerConnection: _pc, baseDir: _bd, thisMember}) {
   PeerConnection = _pc
-  groupInfo = _gi
   baseDir = _bd
-  
-  for(let g in groupInfo){
-     groupInfo[g].members.forEach(e => memberInfo[e] = {active: true, lastDelay: 0})
-  }
 
-  eventQueue = new EventQueue(eventQueueProcessor)
-  let watcher = dirWatcher(baseDir + username + '/')
+  // eventQueue is constructed to not process queue entries until explicitly started
+  // after the PeerConnection class is created
+
+  global.eventQueue.start()
+
+  let watcher = dirWatcher(baseDir)
   watcher.on('event', (eType, file, fileType) => {
-    // Remove queued events for this file
-    eventQueue.remove(e => {return e.file === file})
+    let p = file.split('/')
+    if(p.length == 3) {
+      if(p[1] != thisMember) { //should check if p[1] is a member
+        let cmd = {
+          action: 'sync'
+          , member: p[1]
+          , group: p[2]
+          , syncFor: thisMember
+          , files: treeWalk(baseDir+p[1]+'/'+ p[2])
+        }
 
-    // Enqueue the new file action and fire an event
-    eventQueue.push({action: eType, file: file.slice(baseDir.length), type: fileType})
+        global.groupInfo.addMember(p[1], p[2])
+
+        global.eventQueue.remove(e => {
+          return e.action === cmd && e.member === cmd.member && e.group === cmd.group
+        })
+  
+        global.eventQueue.push(cmd)        
+
+      }
+    } else if(p.length > 3) {
+      if(p[1] == thisMember && p[3] != '.members' && fileType != 'dir' && !file.match(baseDir+'.*/[.]')) {
+        //file shared by thisMember but not a .dotfile or .members
+        // Remove queued events for this file
+        global.eventQueue.remove(e => {return e.file === file})
+
+        // Enqueue the new file action and fire an event
+        global.eventQueue.push({
+          action: eType
+          , file: file.slice(baseDir.length)
+          , type: fileType
+        })
+      }
+    }
   })
-
 }
 
 module.exports=sender

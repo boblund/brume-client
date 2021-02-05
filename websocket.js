@@ -54,7 +54,7 @@ function createWebsocket(url, name, token) {
 
     ws.onmessage = msg => {
       const data = JSON.parse(msg.data)
-      console.log('Got message', data.type)
+      //console.log('Got message', data.type)
 
       switch (data.type) {
         case 'msg':
