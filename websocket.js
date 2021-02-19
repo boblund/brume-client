@@ -54,10 +54,10 @@ function createWebsocket(url, name, token) {
 
     ws.onmessage = msg => {
       const data = JSON.parse(msg.data)
-      //console.log('Got message', data.type)
 
       switch (data.type) {
         case 'msg':
+          //console.log(`ws:     msg ${data.data.type} ${data.data.channelName}`)
           ws.emit(data.data.type, data)
           break
 

@@ -7,13 +7,13 @@ var PeerConnection
 ;
 async function doCommand(member, cmd){
   return new Promise(async (resolve, reject) => {
-    let peerConnection = new PeerConnection('sender');
+    let peerConnection = new PeerConnection('sender'),
+    peer = null;
     try {
-      let result = {};
-      let peer = await peerConnection.open(member)
-      console.log(`sender:    ${peer.channelName} peer open ${JSON.stringify(cmd)}`)
+      peer = await peerConnection.open(member)
+      console.log(`sender:    ${peer.channelName} peer open ${member}`)
 
-      // Receiver no longer sends response - take out
+      // Receiver shouldn't send data
       peer.on('data', (data) => {
         console.log(`sender:    ${peer.channelName} on data` )
       })
@@ -30,9 +30,11 @@ async function doCommand(member, cmd){
         reject(e)
       })
 
+      console.log(`sender:    ${peer.channelName} ${cmd.action}`)
       switch(cmd.action) {
         case 'delete':
         case 'sync':
+        case 'syncReq':
           peer.send(JSON.stringify(cmd));
           break;
 
@@ -47,9 +49,14 @@ async function doCommand(member, cmd){
 
         default:
           console.error(`sender:    ${peer.channelName} unknown cmd.action ${cmd.action}`)     
-      }    
+      }
+      resolve()    
     } catch (err) {
-      reject(err);
+        if(err.peer) {
+          err.peer.destroy() 
+          delete err.peer
+        }
+        reject(err);
     }
   })
 }
@@ -81,9 +88,7 @@ async function eventQueueProcessor(qEntry) {
 
   for(let member of members.filter(m => global.groupInfo.memberStatus(m) == 'active')) {
     try {
-      let result = await doCommand(member, qEntry)
-      //console.log('doCommand result:', JSON.stringify(result))
-      // Need to check for non SUCCESS results
+      await doCommand(member, qEntry)
     } catch (e) {
       e.cmd = e.cmd ? e.cmd : qEntry
       errorHandler(e);
@@ -98,7 +103,7 @@ function sender({PeerConnection: _pc, baseDir: _bd, thisMember}) {
   // eventQueue is constructed to not process queue entries until explicitly started
   // after the PeerConnection class is created
 
-  global.eventQueue.start()
+  //global.eventQueue.start()
 
   let watcher = dirWatcher(baseDir)
   watcher.on('event', (eType, file, fileType) => {
@@ -130,7 +135,7 @@ function sender({PeerConnection: _pc, baseDir: _bd, thisMember}) {
 
         // Enqueue the new file action and fire an event
         global.eventQueue.push({
-          action: eType
+          action: eType == 'changed' ? 'add' : eType
           , file: file.slice(baseDir.length)
           , type: fileType
         })

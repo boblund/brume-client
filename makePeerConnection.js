@@ -30,39 +30,28 @@ function createPeer(type) {
   return peer;
 }
 
-class PeerConnection /*extends require('events').EventEmitter*/ {
+class PeerConnection {
   static signallingServer
   static peers = {}
   static offerProcessor
   static myName
-  //static #OFFERTIMEOUT=60*1000
-  //static queueProcessor
   #type = null
-  
-  //offerTimer = null
   peer = null
-  //peerName = null
  
   constructor(type) {
-    //super()
     this.#type = type
-    //this.peer = createPeer(type);
-    //this.peerName = null
   }
 
   open(peerName, offer) {
     return new Promise(async (resolve, reject) => {
       this.peer = createPeer(this.#type);
-      //this.peerName = peerName;
-      //PeerConnection.peers[peerName] = this //.peer
+
       if(this.#type == 'sender'){
         PeerConnection.peers[this.peer.channelName] = this
-        //console.log('peerConnection: sender open', this.peer.channelName, peerName)
       }
       if(this.#type == 'receiver') {
         if(offer) {
           this.peer.channelName = offer.channelName;
-          //console.log('peerConnection: receiver open', this.peer.channelName, peerName)
           PeerConnection.peers[offer.channelName] = this
           this.peer.signal(offer);
         } else {
@@ -92,16 +81,16 @@ class PeerConnection /*extends require('events').EventEmitter*/ {
         })
 
         this.peer.on('close', () => {
-          delete PeerConnection[this.peer.channelName]
-          //console.log('PeerConnection: remote peer closed', this.peer.channelName);
-          
+          //console.log(`${this.#type}:    ${this.peer.channelName} deleting PeerConnection.peers`)
+          delete PeerConnection.peers[this.peer.channelName]
         })
 
         this.peer.on('error', (e) => {
-          //console.log('peerConnection: peer error', this.peer.channelName, e.code, e.message ? e.message : '')
+          e.peer = this.peer
           reject(e);
         })
       } catch (e) {
+        e.peer = this.peer
         reject(e)        
       }
     })

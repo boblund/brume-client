@@ -15,7 +15,6 @@ var PeerConnection = null
       return
     }
   return new Promise(async (resolve, reject) => {
-    //console.log('offer received:', username)
     let peerConnection = new PeerConnection('receiver');
     let peerPromise = (peerConnection.open)(username, offer)
     let peer = await peerPromise
@@ -24,7 +23,6 @@ var PeerConnection = null
     try {
       peer.once('data', async data => {
         let cmd = JSON.parse(data.toString())
-        //console.log('offerProcessor cmd:', cmd)
         if(cmd.action == 'add' || cmd.action == 'delete') {
           let [, member, group] = cmd.file.match('\(.*?\)/(.*?)/.*')
           if(!global.groupInfo.memberOf(member, group)){
@@ -33,7 +31,7 @@ var PeerConnection = null
           }
         }
 
-        console.log(`receiver:    ${peer.channelName} cmd ${JSON.stringify(cmd)}`)
+        console.log(`receiver:    ${peer.channelName} ${cmd.action}`)
         
         switch(cmd.action) {
           case 'sync':
@@ -42,7 +40,7 @@ var PeerConnection = null
               global.groupInfo.sendSync(cmd.syncFor)
             }
             
-            let memberFiles = cmd.files//treeWalk(baseDir+cmd.member+'/'+cmd.group)
+            let memberFiles = cmd.files
             let ownerFiles = treeWalk(baseDir + cmd.member + '/' + cmd.group)
               .filter(e => path.basename(e) !='.members')
               .map(f => f.replace(baseDir,''))
@@ -50,10 +48,10 @@ var PeerConnection = null
             let deleteFiles = memberFiles.filter(file=>!ownerFiles.includes(file))
 
             for(let file of addFiles) {
-              global.eventQueue.push({action: 'add', file: file/*.slice(baseDir.length)*/, member: cmd.syncFor, type: 'file'})
+              global.eventQueue.push({action: 'add', file: file, member: cmd.syncFor, type: 'file'})
             }
             for(let file of deleteFiles) {
-              global.eventQueue.push({action: 'delete', file: file/*.slice(baseDir.length)*/, member: cmd.syncFor, type: 'file'})
+              global.eventQueue.push({action: 'delete', file: file, member: cmd.syncFor, type: 'file'})
             }
 
             peer.destroy()
@@ -62,10 +60,17 @@ var PeerConnection = null
 
             break;
 
+          case 'syncReq':
+            global.groupInfo.sendSync(cmd.owner, cmd.group)
+            peer.destroy()
+            resolve()
+            break
+
           case 'delete':
             try {
               await fs.promises.unlink(baseDir + cmd.file)
             } catch (err) {
+              console.log(`receiver:   delete error ${err}`)
             } finally {
               peer.destroy();
               resolve();
@@ -87,11 +92,8 @@ var PeerConnection = null
               return
             }
             outStream.on('finish', () => {
-              //console.log('add:', cmd.file)
-              //console.log('outStream finish for:', peer.channelName /*username*/);
-              //peer.destroy()     
-              //resolve()
-            }) 
+            })
+            
             peer.pipe(outStream);
             break
 
