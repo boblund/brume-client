@@ -31,7 +31,9 @@ var PeerConnection = null
           }
         }
 
-        console.log(`receiver:    ${peer.channelName} ${cmd.action}`)
+        let msg = (cmd.action == 'add' ||  cmd.action == 'delete' )
+          ? cmd.file : cmd.group
+        console.log(`receiver:    ${peer.channelName} ${cmd.action} ${msg}`)
         
         switch(cmd.action) {
           case 'sync':

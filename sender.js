@@ -30,7 +30,9 @@ async function doCommand(member, cmd){
         reject(e)
       })
 
-      console.log(`sender:    ${peer.channelName} ${cmd.action}`)
+      let msg = (cmd.action == 'add' ||  cmd.action == 'delete' )
+      ? cmd.file : cmd.group
+      console.log(`sender:    ${peer.channelName} ${cmd.action} ${msg}`)
       switch(cmd.action) {
         case 'delete':
         case 'sync':
