@@ -31,6 +31,7 @@ function dirWatcher(dir) {
 
   // Detect duplicate watch returns for a signle actual file event
   function isDup(f, s) {
+    return(false)
     let oldPrevious = previous;
     previous = {}
     previous[f] = s;

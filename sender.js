@@ -70,10 +70,15 @@ const TQENODEST = 60*60*1000
 function errorHandler(err) {
   switch(err.code) {
 
-      case 'ENODEST':
-        global.groupInfo.memberStatus(err.peerName, 'notconnected')
-        console.error(`sender:    ENODEST ${err.peerName} not connected\n`)
-        break
+    case 'ENODEST':
+      global.groupInfo.memberStatus(err.peerName, 'notconnected')
+      console.error(`sender:    ENODEST ${err.peerName} not connected\n`)
+      break
+
+    case 'EBADDEST':
+      global.groupInfo.memberStatus(err.peerName, 'notconnected')
+      console.error(`sender:    EBADDEST ${err.peerName} not Brume user\n`)
+      break        
 
     default:
       console.error('sender:    unknown error:', err);
@@ -81,10 +86,25 @@ function errorHandler(err) {
 }
 
 async function eventQueueProcessor(qEntry) {
-  console.log(`sender:    enque ${JSON.stringify(qEntry)}`)
+  console.log(`sender:    processing ${JSON.stringify(qEntry)}`)
+  let group
+  if(!(group = qEntry.group)) {
+    if(qEntry.file) {
+      group = qEntry.file.split('/')[1]
+    } else {
+      console.log(`sender:    can't process without group`)
+      return
+    }
+  }
+
   let members = qEntry.member
     ? [qEntry.member]
-    : global.groupInfo.getMembers(qEntry.file.split('/')[1])
+    : global.groupInfo.getMembers(group)
+
+  if(members.length == 0) {
+    console.log(`sender:    WARNING no members for group ${group}`)
+    return
+  }
 
   for(let member of members.filter(m => global.groupInfo.memberStatus(m) == 'active')) {
     try {
@@ -128,17 +148,24 @@ function sender({PeerConnection: _pc, baseDir: _bd, thisMember}) {
 
       }
     } else if(p.length > 3) {
-      if(p[1] == thisMember && p[3] != '.members' && fileType != 'dir' && !file.match(baseDir+'.*/[.]')) {
-        //file shared by thisMember but not a .dotfile or .members
-        // Remove queued events for this file
-        global.eventQueue.remove(e => {return e.file === file})
+      if(p[1] == thisMember) {
+        if(p[3] == '.members') {
+          // add and empty or not - if empty create with []
+          // changed and empty or not - if empty add []
+          // deleted
+          global.groupInfo.updateSender(p[2], eType)
+        } else if(fileType != 'dir' && !file.match(baseDir+'.*/[.]')) {
+          //file shared by thisMember but not a .dotfile or .members
+          // Remove queued events for this file
+          global.eventQueue.remove(e => {return e.file === file})
 
-        // Enqueue the new file action and fire an event
-        global.eventQueue.push({
-          action: eType == 'changed' ? 'add' : eType
-          , file: file.slice(baseDir.length)
-          , type: fileType
-        })
+          // Enqueue the new file action and fire an event
+          global.eventQueue.push({
+            action: eType == 'changed' ? 'add' : eType
+            , file: file.slice(baseDir.length)
+            , type: fileType
+          })
+        }
       }
     }
   })
