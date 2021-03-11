@@ -170,18 +170,12 @@ if(process.argv.length == 3) {
 } 
 
 try {
-  fs.statSync(configFile).isFile()
-} catch(e) {
-  console.error(`brume-client:    no brume config at ${configFile}`)
-  process.exit(1)
-}
-
-try {
-  var baseDir = JSON.parse(fs.readFileSync(configFile, 'utf-8')).baseDir.replace('./','')
-      ,{token, url} = JSON.parse(fs.readFileSync(baseDir + '/.wsserver.json', 'utf-8'))
+  var {baseDir, token, url} = JSON.parse(fs.readFileSync(configFile, 'utf-8'))
+  baseDir = baseDir.replace('./','')
   url = process.env.LOCAL ? 'ws://localhost:' + process.env.LOCAL : url
+  if(!baseDir || !token || !url) throw('baseDir, token or url not set')
 } catch(e) {
-  console.error('brume-client:    error reading config file:', e)
+  console.error(`brume-client:    Brume config error ${configFile} ${e}`)
   process.exit(1)
 }
 
