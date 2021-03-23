@@ -19,6 +19,7 @@
   "homepage": "https://github.com/boblund/brume#readme",
   "dependencies": {
     "aws-lambda-ws-server": "^0.1.21",
+    "chokidar": "^3.5.1",
     "jsonwebtoken": "^8.5.1",
     "simple-peer": "^9.8.0",
     "watch": "^1.0.2",

@@ -79,7 +79,7 @@ class EventQueue {
 
   start() {
     //this.#e.once('data', () => {
-      this.#processQ()
+      this.processQ()
     //})
     //this.#e.emit('data')
   }
@@ -94,11 +94,11 @@ class EventQueue {
     return this.#a.shift()
   }
 
-  async #processQ(){
+  async processQ(){
     while(this.length() > 0) {
       await this.#_qProcessor(this.shift())
     }
-    this.#e.once('data', () => {this.#processQ()})
+    this.#e.once('data', () => {this.processQ()})
   }
 
   length() {

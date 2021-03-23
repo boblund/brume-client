@@ -44,7 +44,7 @@ var PeerConnection = null
             
             let memberFiles = cmd.files
             let ownerFiles = treeWalk(baseDir + cmd.member + '/' + cmd.group)
-              .filter(e => path.basename(e) !='.members')
+              //.filter(e => path.basename(e) !='.members')
               .map(f => f.replace(baseDir,''))
             let addFiles = ownerFiles.filter(file=>!memberFiles.includes(file))
             let deleteFiles = memberFiles.filter(file=>!ownerFiles.includes(file))
@@ -60,8 +60,6 @@ var PeerConnection = null
             resolve()
             return
 
-            break;
-
           case 'syncReq':
             global.groupInfo.sendSync(cmd.owner, cmd.group)
             peer.destroy()
@@ -69,6 +67,7 @@ var PeerConnection = null
             break
 
           case 'delete':
+            global.groupInfo.networkEvents.add(cmd)
             try {
               await fs.promises.unlink(baseDir + cmd.file)
             } catch (err) {
@@ -81,6 +80,7 @@ var PeerConnection = null
             break
 
           case 'add':
+            global.groupInfo.networkEvents.add(cmd)
             var outStream;
 
             try {

@@ -8,36 +8,58 @@ const global = require('./global.js')
       , sender = require("./sender.js")
       , receiver = require("./receiver.js")
 ;
+function NetworkEvents() {
+  var networkEvents = []
 
+  this.add = cmd => {
+    networkEvents.push(cmd)
+  }
+  this.remove = function(cmd){
+    let index = networkEvents.findIndex(
+      function(e) {return e.action == this.action && e.file == this.file}
+      ,cmd
+    )
+
+    if(index > -1) {
+      // ignore file event caused by network event 
+      networkEvents.splice(index, 1)
+    }
+
+    return index
+
+  }
+}
 function GroupInfo(baseDir, username) {
-  var sender = {}
-//      ,receiver = {}
+  var groupData = {}
       ,memberStatus = {}
   ;
 
-  this.getMembers = (group) => {return sender[group]['members']};
-  this.updateMembers = (group, members) => { return (sender[group][members] = members) }
-  this.memberOf = (member, group) => {return receiver[member] && group ? receiver[member]['groups'].includes(group) : true}
+  this.networkEvents = new NetworkEvents;
+  this.getMembers = (user, group) => {
+    return groupData[user][group]['members'].filter(m => m != username)
+  };
+  //this.updateMembers = (group, members) => { return (sender[group][members] = members) }
+  this.memberOf = (user, group) => {return groupData[user] && group ? groupData[user][group] : true}
   this.addMember = (member, group) => { receiver[member]['groups'].push(group)}
-  this.memberGroups = member => {return Object.entries(sender).filter(e => e[1].includes(member)).flat().filter(e=>typeof e == 'string')}
+  //this.memberGroups = member => {return Object.entries(sender).filter(e => e[1].includes(member)).flat().filter(e=>typeof e == 'string')}
   this.memberStatus = (member, status) => {return status ? (memberStatus[member] = status) : memberStatus[member]}
 
-  this.sendSync = (member, group) => {
-    this.memberStatus(member, 'active')
-    let groups = group ? [group] : receiver[member].groups
-    for(let group of groups) {
-      let cmd = {action: 'sync', member: member, syncFor: username, group: group
-        , files: treeWalk(baseDir+member+'/'+ group).map(f => f.replace(baseDir,''))}
-      global.eventQueue.push(cmd)
-    }   
+  this.sendSync = (user, group) => {
+    this.memberStatus(user, 'active')
+    let cmd = {
+      action: 'sync', member: user, syncFor: username, group: group
+      ,files: treeWalk(baseDir+user+'/'+ group).map(f => f.replace(baseDir,''))
+    }
+    global.eventQueue.push(cmd)  
   }
 
-  this.sendSyncReq = ({member, group}) => {
-    global.eventQueue.push({action: 'syncReq', member: member, owner: username, group: group})
+  this.sendSyncReq = (user, group) => {
+    this.memberStatus(user, 'active')
+    global.eventQueue.push({action: 'syncReq', member: user, owner: username, group: group})
   }
 
-  this.updateSender = (group, action) => {
-    let p = baseDir+username
+  this.updateMembers = (user, group, action) => {
+    let p = baseDir+user
         , newMembers =[]
 
     switch(action) {
@@ -45,7 +67,6 @@ function GroupInfo(baseDir, username) {
         break;
 
       case 'add':
-        sender[group] = { members: [] }
       case 'changed':
         try {
           newMembers = JSON.parse(fs.readFileSync(p+'/'+group+'/.members'))
@@ -63,89 +84,79 @@ function GroupInfo(baseDir, username) {
     }
 
     //sender.group['members'] = sender.group['members'] ? sender.group.members : []
-    let added = newMembers.filter(m => !sender[group].members.includes(m))
-    let removed = sender[group].members.filter(m => !newMembers.includes(m))
+    let added = newMembers.filter(m => !groupData[user][group].members.includes(m))
+    let removed = groupData[user][group].members.filter(m => !newMembers.includes(m))
 
-    // Request sync from each new member
-    added.forEach(member => {
-      this.memberStatus(member, 'active');
-      this.sendSyncReq({member, group})
-    })
-
-    // Delete everything for all removed members
-    let files = treeWalk(baseDir + username + '/' + group)
-      .filter(e => path.basename(e) !='.members')
-      .map(f => f.replace(baseDir,''))
-
-    removed.forEach(member => {
-      files.forEach(file => {
-        global.eventQueue.push({action: 'delete', file: file, member: member, type: 'file'})
+    // Do following only for this user, i.e. username)
+    if(user == username) {
+      // Request sync from each new member
+      added.forEach(member => {
+        this.memberStatus(member, 'active');
+        this.sendSyncReq(member, group)
       })
-    })
+    
+      // Delete everything for all removed members
+      let files = treeWalk(baseDir + user + '/' + group)
+        //.filter(e => path.basename(e) !='.members')
+        .map(f => f.replace(baseDir,''))
 
-    sender[group] = { members: newMembers}
+      removed.forEach(member => {
+        files.forEach(file => {
+          global.eventQueue.push({action: 'delete', file: file, member: member, type: 'file'})
+        })
+      })
+    }
+
+    groupData[user][group] = { members: newMembers}
   }
 
-  const buildSender = () => {
-    let p = baseDir+username
-        , groups
-        , members
-
+  //function initGroupData() {
+    let groups
+        ,users
+  
     try {
-      groups = fs.readdirSync(p).filter(f => fs.statSync(path.join(p, f)).isDirectory())
+      users = fs.readdirSync(baseDir).filter(f => fs.statSync(path.join(baseDir, f)).isDirectory())
     } catch (e) {
-      console.log(`brume-client:    error reading ${p}`)
+      console.log(`brume-client:    error reading ${baseDir}`)
       return
     }
 
-    // Update set of members for each of this Brume member's groups
-    for(let group of groups) {
+    for(let user of users) {
+      groupData[user]={}
+      let p = path.join(baseDir + user)
+
       try {
-        members = JSON.parse(fs.readFileSync(p+'/'+group+'/.members'))
-      } catch(e) {
-        if(e.message && e.message.includes('Unexpected token')) {
-          // messed up .members; can't tell what to do
-          return
-        }
+        groups = fs.readdirSync(p).filter(f => fs.statSync(path.join(p, f)).isDirectory())
+      } catch (e) {
+        console.log(`brume-client:    error reading ${p}`)
+        continue
       }
 
-      // Request sync from each new member
-      members.forEach(member => {
-        this.memberStatus(member, 'active');
-        this.sendSyncReq({member, group})
-      })
-
-      sender[group] = { members: members}
-    }
-  }
-
-  const buildReceiver = () => {
-    // Build set of Brume member/group that this Brume member is a member of
-    let p=baseDir
-
-    try {
-      let members = fs.readdirSync(p).filter(f => fs.statSync(path.join(p, f)).isDirectory())
-      for(let member of members.filter(m => m != username)) {
-        if(member != username) {
-          p = baseDir+member
-          let groups = fs.readdirSync(p).filter(f => fs.statSync(path.join(p, f)).isDirectory())
-          receiver[member] = {groups: groups}
-
-          // Send sync to every reveiver member/group
-          for(let member in receiver) {
-            this.memberStatus(member, 'active');
-            this.sendSync(member)
+      for(let group of groups) {
+        let members
+        try {
+          members = JSON.parse(fs.readFileSync(p+'/'+group+'/.members'))
+        } catch(e) {
+          if(e.message && e.message.includes('Unexpected token')) {
+            // messed up .members; can't tell what to do
+            return
           }
         }
-      }
-    } catch(e) {
-      console.error('groupInfo:    error', e)
-      process.exit(1)
-    }
-  }
 
-  buildSender()
-  buildReceiver()
+        groupData[user][group] = { members: members ? members : []}
+
+        if(user == username) {
+          // Request sync from each new member
+          members.filter(m => m != username).forEach(member => {
+            this.sendSyncReq(member, group)
+          })
+        } else {
+          // Send sync to each owner
+          this.sendSync(user, group)
+        }
+      }
+    }
+  //}
 }
 
 const osConfigLocs = {

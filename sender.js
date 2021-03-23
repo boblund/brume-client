@@ -63,12 +63,6 @@ async function doCommand(member, cmd){
   })
 }
 
-var timedQueue = new (require('./TimedQueue.js'))();
-
-const TQENODEST = 60*60*1000
-      , TQEOFFERTIMEOUT = 60*60*1000
-;
-
 function errorHandler(err) {
   switch(err.code) {
 
@@ -89,9 +83,11 @@ function errorHandler(err) {
 
 async function eventQueueProcessor(qEntry) {
   console.log(`sender:    processing ${JSON.stringify(qEntry)}`)
-  let group
+  let user, group
+ 
   if(!(group = qEntry.group)) {
     if(qEntry.file) {
+      user = qEntry.file.split('/')[0]
       group = qEntry.file.split('/')[1]
     } else {
       console.log(`sender:    can't process without group`)
@@ -101,7 +97,7 @@ async function eventQueueProcessor(qEntry) {
 
   let members = qEntry.member
     ? [qEntry.member]
-    : global.groupInfo.getMembers(group)
+    : global.groupInfo.getMembers(user, group)
 
   if(members.length == 0) {
     console.log(`sender:    WARNING no members for group ${group}`)
@@ -127,49 +123,63 @@ function sender({PeerConnection: _pc, baseDir: _bd, thisMember}) {
 
   //global.eventQueue.start()
 
-  let watcher = dirWatcher(baseDir)
-  watcher.on('event', (eType, file, fileType) => {
-    let p = file.split('/')
-    if(p.length == 3) {
-      if(p[1] != thisMember) { //should check if p[1] is a member
-        let cmd = {
-          action: 'sync'
-          , member: p[1]
-          , group: p[2]
-          , syncFor: thisMember
-          , files: treeWalk(baseDir+p[1]+'/'+ p[2])
-        }
+  const watcher = require('chokidar').watch('.', {cwd: baseDir})
 
-        global.groupInfo.addMember(p[1], p[2])
-
-        global.eventQueue.remove(e => {
-          return e.action === cmd && e.member === cmd.member && e.group === cmd.group
-        })
+  watcher.on('ready', () => {
+    const events = ['add', 'addDir', 'change', 'unlink', 'unlinkDir']
+          ,actions = [null, 'add', 'add', 'add', 'delete', 'delete']
+          ,types = [null, 'file', 'dir', 'file', 'file', 'dir']
+          ,log = console.log.bind(console)
   
-        global.eventQueue.push(cmd)        
+    log('sender:    watcher ready')
+    watcher.on('all', (event, path) => {
+      let p = path.split('/')
+          , cmd = null
+    
+      // check if this was caused by a network event
+  
+      if(p.length > 2) {
+        cmd = {
+          action: actions[events.indexOf(event)+1]
+          ,file: path
+          ,type: types[events.indexOf(event)+1]
+        }
 
-      }
-    } else if(p.length > 3) {
-      if(p[1] == thisMember) {
-        if(p[3] == '.members') {
-          // add and empty or not - if empty create with []
-          // changed and empty or not - if empty add []
-          // deleted
-          global.groupInfo.updateSender(p[2], eType)
-        } else if(fileType != 'dir' && !file.match(baseDir+'.*/[.]')) {
-          //file shared by thisMember but not a .dotfile or .members
-          // Remove queued events for this file
-          global.eventQueue.remove(e => {return e.file === file})
+        if(!cmd.action) {
+          error('unknown event', event, path)
+          return
+        }
+  
+        if(p[2] == '.members') {
+          // Update groupData with new .members content
+          global.groupInfo.updateMembers(p[0], p[1], actions[events.indexOf(event)+1])
 
-          // Enqueue the new file action and fire an event
-          global.eventQueue.push({
-            action: eType == 'changed' ? 'add' : eType
-            , file: file.slice(baseDir.length)
-            , type: fileType
-          })
+          // if user != thisMember remove cmd from networkEvents
+          //if(p[0] != thisMember) {
+          //  global.groupInfo.networkEvents.remove(cmd)
+          //}
+          //return
+        }
+
+        if(global.groupInfo.networkEvents.remove(cmd) > -1) {
+          cmd = null
+        }
+
+      } else if((p.length == 2) && (p[0] != thisMember)) {
+        if(actions[events.indexOf(event)+1] == 'delete') {
+          cmd = {action: 'remove', member: p[0], group: p[1], remove: thisMember}
+        } else {
+          // new group which thisMember is a member of
+          cmd = {action: 'sync', member: p[0], group: p[1], syncFor: thisMember, files: []}
+          global.groupInfo.addMember(p[0], p[1])
         }
       }
-    }
+  
+      if(cmd) {
+        //log(cmd)
+        global.eventQueue.push(cmd)
+      }
+    })
   })
 }
 
