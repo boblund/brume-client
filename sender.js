@@ -1,6 +1,11 @@
-var global = require('./global.js')
-const {dirWatcher, EventQueue, treeWalk} = require('./fileWatcher.js');
-global.eventQueue = EventQueue(eventQueueProcessor)
+const brume = require('./global.js')
+      ,{dirWatcher, EventQueue, treeWalk} = require('./fileWatcher.js')
+      ,{statSync} = require('fs')
+      ,{join} = require('path')
+      ,{round} = Math
+;
+
+brume.eventQueue = EventQueue(eventQueueProcessor)
 
 var PeerConnection
     , baseDir = null
@@ -11,17 +16,25 @@ async function doCommand(member, cmd){
     peer = null;
     try {
       peer = await peerConnection.open(member)
-      console.log(`sender:    ${peer.channelName} peer open ${member}`)
+      console.log(`sender:    ${peer.channelName} ${member} ${JSON.stringify(cmd)}`)
 
-      // Receiver shouldn't send data
       peer.on('data', (data) => {
-        console.log(`sender:    ${peer.channelName} on data` )
+        //console.log(`sender:    ${peer.channelName} on data` )
+        result = JSON.parse(data.toString())
+        if(result.type == 'SUCCESS') {
+          resolve(result)
+        } else {
+          //reject(result)
+          reject({
+            code: result.error.code   //ENOTMEMBER
+            , peerName: member
+            , channelName: peer.channelName
+          })
+        }
       })
 
       peer.on('close', () => {
-        console.log(`sender:    ${peer.channelName} peer close\n`);
-        peer.destroy()
-        resolve({type: 'SUCCESS'})
+        //console.log(`sender:    ${peer.channelName} peer close\n`);
       })
 
       peer.on('error', e => {
@@ -30,29 +43,31 @@ async function doCommand(member, cmd){
         reject(e)
       })
 
-      let msg = (cmd.action == 'add' ||  cmd.action == 'delete' )
-      ? cmd.file : cmd.group
-      console.log(`sender:    ${peer.channelName} ${cmd.action} ${msg}`)
+      //console.log(`sender:    ${peer.channelName} ${JSON.stringify(cmd)}`)
       switch(cmd.action) {
-        case 'delete':
+        case 'unlink':
+        case 'send':
         case 'sync':
         case 'syncReq':
           peer.send(JSON.stringify(cmd));
           break;
 
+        case 'change':
         case 'add':
-          let inStream = (require('fs')).createReadStream(baseDir + cmd.file, 
-            {emitClose: true, autoClose: false})
+          let inStream = (require('fs')).createReadStream(baseDir + cmd.file)
 
-          inStream.on('end', () => {})
+          inStream.on('end', () => {
+            //console.log('instream end:',result);
+            peer.send('\u0005');
+          })
           peer.send(JSON.stringify(cmd));
-          inStream.pipe(peer);
+          inStream.pipe(peer, {end: false});
           break;
 
         default:
           console.error(`sender:    ${peer.channelName} unknown cmd.action ${cmd.action}`)     
       }
-      resolve()    
+      //resolve()    
     } catch (err) {
         if(err.peer) {
           err.peer.destroy() 
@@ -67,14 +82,19 @@ function errorHandler(err) {
   switch(err.code) {
 
     case 'ENODEST':
-      global.groupInfo.memberStatus(err.peerName, 'notconnected')
+      brume.groupInfo.memberStatus(err.peerName, 'notconnected')
       console.error(`sender:    ENODEST ${err.peerName} not connected\n`)
       break
 
     case 'EBADDEST':
-      global.groupInfo.memberStatus(err.peerName, 'notconnected')
+      brume.groupInfo.memberStatus(err.peerName, 'notconnected')
       console.error(`sender:    EBADDEST ${err.peerName} not Brume user\n`)
-      break        
+      break
+      
+    case 'ENOTMEMBER':
+      brume.groupInfo.memberStatus(err.peerName, 'notconnected')
+      console.error(`sender:    ENOTMEMBER ${err.peerName} not member of ${err.cmd.group}\n`)
+      break
 
     default:
       console.error('sender:    unknown error:', err);
@@ -82,7 +102,7 @@ function errorHandler(err) {
 }
 
 async function eventQueueProcessor(qEntry) {
-  console.log(`sender:    processing ${JSON.stringify(qEntry)}`)
+  //console.log(`sender:    processing ${JSON.stringify(qEntry)}`)
   let user, group
  
   if(!(group = qEntry.group)) {
@@ -97,20 +117,43 @@ async function eventQueueProcessor(qEntry) {
 
   let members = qEntry.member
     ? [qEntry.member]
-    : global.groupInfo.getMembers(user, group)
+    : brume.groupInfo.getMembers(user, group)
 
   if(members.length == 0) {
     console.log(`sender:    WARNING no members for group ${group}`)
     return
   }
 
-  for(let member of members.filter(m => global.groupInfo.memberStatus(m) == 'active')) {
+  for(let member of members.filter(m => brume.groupInfo.memberStatus(m) == 'active')) {
+    let result
     try {
-      await doCommand(member, qEntry)
+      result = await doCommand(member, qEntry)
+      // Move to errorHandler?
+      if(result.type == 'CONFLICT') {
+        networkEvents.add({action: 'unlink', file: cmd.file})
+        networkEvents.add({action: 'add', file: cmd.file +'-CONFLICT-'+member})
+        await fs.promises.rename(baseDir+cmd.file, baseDir+cmd.file +'-CONFLICT-'+member)
+        brume.eventQueue.push({action: 'send', file: cmd.file})
+      }
     } catch (e) {
       e.cmd = e.cmd ? e.cmd : qEntry
       errorHandler(e);
     }
+  }
+}
+
+class FileData extends Map {
+  constructor(options) {
+    super(options)
+  }
+
+  grpFiles = (m, g) => {
+    var files = []
+    this.forEach((v, k) => {
+      let [_m, _g] = k.split('/')
+      if(m == _m && g == _g) files.push({k, v})
+    })
+    return files
   }
 }
 
@@ -121,66 +164,73 @@ function sender({PeerConnection: _pc, baseDir: _bd, thisMember}) {
   // eventQueue is constructed to not process queue entries until explicitly started
   // after the PeerConnection class is created
 
-  //global.eventQueue.start()
+  //brume.eventQueue.start()
 
   const watcher = require('chokidar').watch('.', {cwd: baseDir})
 
-  watcher.on('ready', () => {
-    const events = ['add', 'addDir', 'change', 'unlink', 'unlinkDir']
-          ,actions = [null, 'add', 'add', 'add', 'delete', 'delete']
-          ,types = [null, 'file', 'dir', 'file', 'file', 'dir']
-          ,log = console.log.bind(console)
-  
-    log('sender:    watcher ready')
-    watcher.on('all', (event, path) => {
-      let p = path.split('/')
-          , cmd = null
-    
-      // check if this was caused by a network event
-  
-      if(p.length > 2) {
-        cmd = {
-          action: actions[events.indexOf(event)+1]
-          ,file: path
-          ,type: types[events.indexOf(event)+1]
-        }
+  brume.fileData = new FileData()
 
-        if(!cmd.action) {
-          error('unknown event', event, path)
-          return
-        }
+  function initAddHandler(path, stats) {
+    console.log('initadd', path)
+    brume.fileData.set(path, {mod: round(stats.mtimeMs)}) 
+  }
   
-        if(p[2] == '.members') {
-          // Update groupData with new .members content
-          global.groupInfo.updateMembers(p[0], p[1], actions[events.indexOf(event)+1])
+  watcher
+  .on('add', initAddHandler)
+  .on('ready', () => {
+    console.log('sender:    watcher ready')
+    watcher
+      .removeListener('add', initAddHandler)
+      .on('all', (event, path) => {
+        let p = path.split('/')
+            ,cmd = {action: event, file: path}
+        switch(event) {
+          case 'add':
+          case 'change':
+            if(p.length == 3 && p[2] == '.members') {
+              brume.groupInfo.updateMembers(p[0], p[1], cmd.action)
+            }
+            
+            if(brume.groupInfo.networkEvents.remove(cmd) == -1) {
+              let stat = statSync(join(baseDir, path), {throwIfNoEntry: false})
+              cmd.mod = round(stat.mtimeMs)
 
-          // if user != thisMember remove cmd from networkEvents
-          //if(p[0] != thisMember) {
-          //  global.groupInfo.networkEvents.remove(cmd)
-          //}
-          //return
-        }
+              if(event == 'change') {
+                cmd.orig = brume.fileData.get(path).mod
+              }
 
-        if(global.groupInfo.networkEvents.remove(cmd) > -1) {
-          cmd = null
-        }
+              brume.fileData.set(path, {mod: round(stat.mtimeMs)})
+              brume.eventQueue.push(cmd)
+            }
 
-      } else if((p.length == 2) && (p[0] != thisMember)) {
-        if(actions[events.indexOf(event)+1] == 'delete') {
-          cmd = {action: 'remove', member: p[0], group: p[1], remove: thisMember}
-        } else {
-          // new group which thisMember is a member of
-          cmd = {action: 'sync', member: p[0], group: p[1], syncFor: thisMember, files: []}
-          global.groupInfo.addMember(p[0], p[1])
-        }
-      }
+            break
   
-      if(cmd) {
-        //log(cmd)
-        global.eventQueue.push(cmd)
-      }
-    })
-  })
+          case 'unlink':
+            brume.fileData.delete(path)
+            if(brume.groupInfo.networkEvents.remove(cmd) == -1) {
+              brume.eventQueue.push(cmd)
+            }
+            break
+  
+          case 'addDir':
+            p = path.split('/')
+            if(p.length ==2 && p[0] != thisMember) {
+              brume.groupInfo.addMember(p[0], p[1])
+              brume.groupInfo.sendSync(p[0], p[1])
+              /*brume.eventQueue.push(
+                {action: 'sync', member: p[0], group: p[1], syncFor: thisMember, files: []}
+              )*/
+            } 
+            break
+  
+          case 'unlinkDir':
+            p = path.split('/')
+            if(p.length ==2 && p[0] != thisMember) {
+              brume.groupInfo.rmMember(p[0], p[1])
+            }
+        }
+      })
+    })  
 }
 
 module.exports=sender

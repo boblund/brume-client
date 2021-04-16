@@ -67,7 +67,7 @@ function createWebsocket(url, name, token) {
 
         case 'peerError':
           ws.emit('peerError', {
-            code: data.code   //ENODEST or EBADDEST
+            code: data.code   //ENODEST, EBADDEST
             , peerName: data.edata.receiver
             , channelName: data.edata.channelName
           })
