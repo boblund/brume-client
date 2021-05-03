@@ -2,13 +2,17 @@
 
 const brume = require('./global.js')
       , fs = require('fs')
-      , path = require('path')
       , jwt = require('jsonwebtoken')
-      , {treeWalk} = require('./fileWatcher.js')
       , sender = require("./sender.js")
       , receiver = require("./receiver.js")
       , createWebsocket = require('./websocket.js')
+      , osConfigLocs = {
+          linux: '/etc/brume/brume.conf'
+          ,win32: process.env.PROGRAMDATA + '/brume.conf'
+          ,darwin: '/usr/local/etc/brume/brume.conf'
+        }
 ;
+
 
 var configFile
 
@@ -36,205 +40,17 @@ try {
 }
 
 const {username} = jwt.decode(token)
+brume.thisUser = username
+brume.init(baseDir, username)
 
-function NetworkEvents() {
-  var networkEvents = []
-
-  this.add = cmd => {
-    networkEvents.push(cmd)
-  }
-  this.remove = function(cmd){
-    let index = networkEvents.findIndex(
-      function(e) {return e.action == this.action && e.file == this.file}
-      ,cmd
-    )
-
-    if(index > -1) {
-      // ignore file event caused by network event 
-      networkEvents.splice(index, 1)
-    }
-
-    return index
-
-  }
-}
-
-function GroupInfo(baseDir, username) {
-  var groupData = {}
-      ,memberStatus = {}
-  ;
-
-  this.networkEvents = new NetworkEvents;
-  this.getMembers = (user, group) => {
-    return groupData[user][group]['members'].filter(m => m != username)
-  };
-
-  /*this.memberOf = (user, group) => {
-    return groupData[user] ? (group ? groupData[user][group] : true) : false
-  }*/
-
-  this.memberOf = (cmd) => {
-    let user, group
-    if(['add', 'change', 'unlink', 'send','syncReq'].includes(cmd.action)) {
-      if(['syncReq'].includes(cmd.action)) {
-        [, user, group] = [, cmd.owner, cmd.group]
-      } else {
-        [, user, group] = cmd.file.match('\(.*?\)/(.*?)/.*')
-      }
-      return groupData[user] ? (group ? groupData[user][group] : true) : false
-    } else if(['sync'].includes(cmd.action)) {
-      return JSON.parse(fs.readFileSync(baseDir + username + '/'+ cmd.group +'/.members')).includes(cmd.syncFor)
-    } else {
-      console.log(`receiver:    unknown cmd ${JSON.stringify(cmd)}`)
-      return false
-    }
-  }
-
-  this.addMember = (member, group) => {
-    groupData[member] = groupData[member] ? groupData[member] : {} 
-    groupData[member][group] = {members: []}
-  }
-
-  this.rmMember = (member, group) => {
-    delete groupData[member][group]
-  }
-  //this.memberGroups = member => {return Object.entries(sender).filter(e => e[1].includes(member)).flat().filter(e=>typeof e == 'string')}
-  this.memberStatus = (member, status) => {return status ? (memberStatus[member] = status) : memberStatus[member]}
-
-  this.sendSync = (user, group) => {
-    this.memberStatus(user, 'active')
-    let cmd = {
-      action: 'sync', member: user, syncFor: username, group: group
-      ,files: treeWalk(baseDir+user+'/'+ group).map(f => f.replace(baseDir,''))
-    }
-    brume.eventQueue.push(cmd)  
-  }
-
-  this.sendSyncReq = (user, group) => {
-    this.memberStatus(user, 'active')
-    brume.eventQueue.push({action: 'syncReq', member: user, owner: username, group: group})
-  }
-
-  this.updateMembers = (user, group, action) => {
-    let p = baseDir+user
-        , newMembers =[]
-
-    switch(action) {
-      case 'unlink':
-        break;
-
-      case 'add':
-        // should never be a members property in this case
-        //groupData[user][group] = {members: []}
-      case 'changed':
-        try {
-          newMembers = JSON.parse(fs.readFileSync(p+'/'+group+'/.members'))
-        } catch(e) {
-          if(e.message && e.message.includes('Unexpected token')) {
-            // messed up .members; can't tell what to do
-            return
-          }
-        }
-        break;
-
-      default:
-        console.log(`brume-client:    updateMembers unknown action ${action}`)
-        return
-    }
-
-    let added = newMembers
-      .filter(m => !groupData[user][group].members.includes(m))
-    let removed = groupData[user][group].members.filter(m => !newMembers.includes(m))
-
-    // Do following only for this user, i.e. username)
-    if(user == username) {
-      // Request sync from each new member
-      added.filter(m => m != username).forEach(member => {
-        this.memberStatus(member, 'active');
-        this.sendSyncReq(member, group)
-      })
-    
-      // Delete everything for all removed members
-      let files = treeWalk(baseDir + user + '/' + group)
-        //.filter(e => path.basename(e) !='.members')
-        .map(f => f.replace(baseDir,''))
-
-      removed.forEach(member => {
-        files.forEach(file => {
-          brume.eventQueue.push({action: 'unlink', file: file, member: member})
-        })
-      })
-    }
-
-    groupData[user][group] = { members: newMembers}
-  }
-
-  //function initGroupData() {
-    let groups
-        ,users
-  
-    try {
-      users = fs.readdirSync(baseDir).filter(f => fs.statSync(path.join(baseDir, f)).isDirectory())
-    } catch (e) {
-      console.log(`brume-client:    error reading ${baseDir}`)
-      return
-    }
-
-    for(let user of users) {
-      groupData[user]={}
-      let p = path.join(baseDir + user)
-
-      try {
-        groups = fs.readdirSync(p).filter(f => fs.statSync(path.join(p, f)).isDirectory())
-      } catch (e) {
-        console.log(`brume-client:    error reading ${p}`)
-        continue
-      }
-
-      for(let group of groups) {
-        let members
-        try {
-          members = JSON.parse(fs.readFileSync(p+'/'+group+'/.members'))
-        } catch(e) {
-          if(e.message && e.message.includes('Unexpected token')) {
-            // messed up .members; can't tell what to do
-            return
-          }
-        }
-
-        groupData[user][group] = { members: members ? members : []}
-
-        if(user == username) {
-          // Request sync from each new member
-          if(members) {
-            members.filter(m => m != username).forEach(member => {
-              this.sendSyncReq(member, group)
-            })
-          }
-        } else {
-          // Send sync to each owner
-          this.sendSync(user, group)
-        }
-      }
-    }
-  //}
-}
-
-const osConfigLocs = {
-  linux: '/etc/brume/brume.conf'
-  ,win32: process.env.PROGRAMDATA + '/brume.conf'
-  ,darwin: '/usr/local/etc/brume/brume.conf'
-}
-
-
-
-
-brume.groupInfo = new GroupInfo(baseDir, username)
 
 async function main() {
   try {
     var ws = await createWebsocket(url, username, token)
     var PeerConnection = require('./makePeerConnection.js')(ws, username)
+    //init watcher
+    //build groupData (which creates eventQueue)
+
 
     sender({
       PeerConnection: PeerConnection

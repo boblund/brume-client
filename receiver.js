@@ -1,10 +1,10 @@
 "use strict"
 var brume = require('./global.js')
 
-const {treeWalk} = require('./fileWatcher.js')
-      , fs = require('fs')
-      , {basename, dirname, join} = require('path')
+const fs = require('fs')
+      , {dirname, join} = require('path')
       , { Transform } = require('stream')
+
 ;
 var PeerConnection = null
     , baseDir = null
@@ -21,7 +21,6 @@ class EoStream extends Transform {
     if (chunk.length == 1 && chunk[0] == 5) {
       // end of stream
       this.#_cb()
-      //callback(null, null)
     } else {
       // Pass the chunk on.
       callback(null, chunk)
@@ -48,63 +47,77 @@ function offerProcessor(offer, username) {
     let peerPromise = (peerConnection.open)(username, offer)
     let peer = await peerPromise
     let member, group
-    //console.log(`receiver:    ${peer.channelName} peer open ${username}` )
 
     try {
       var resp
       peer.once('data', async data => {
         let cmd = JSON.parse(data.toString())
 
-        /*if(['add', 'change', 'unlink', 'send', 'syncReq'].includes(cmd.action)) {
+        if(['add', 'change', 'unlink', 'send', 'syncReq'].includes(cmd.action)) {
           if(['syncReq'].includes(cmd.action)) {
             [, member, group] = [, cmd.owner, cmd.group]
           } else {
             [, member, group] = cmd.file.match('\(.*?\)/(.*?)/.*')
-          } */
-
-          //if(!brume.groupInfo.memberOf(member, group)){
-          if(!brume.groupInfo.memberOf(cmd)){
+          }
+          
+          if(!brume.groupInfo.memberOf(member, group)){
             console.log('receiver:    not member of', member+'/'+group)
             peer.send(JSON.stringify({type: 'peerError', error: {code: 'ENOTMEMBER'}}));
             peer.destroy()
             resolve()
             return
           }
-        //}
+        }
         
         console.log(`receiver:    ${peer.channelName} ${JSON.stringify(cmd)}`)
         
         switch(cmd.action) {
           case 'sync':
-            if(brume.groupInfo.memberStatus(cmd.syncFor) == 'notconnected') {
-              brume.groupInfo.memberStatus(cmd.syncFor, 'active')
-              //brume.groupInfo.sendSync(cmd.member, cmd.group)
+            if(brume.groupInfo.memberStatus(username) == 'notconnected') {
+              brume.groupInfo.memberStatus(username, 'active')
             }
             
-            let memberFiles = cmd.files
-            let ownerFiles = treeWalk(baseDir + cmd.member + '/' + cmd.group)
-              //.filter(e => basename(e) !='.members')
-              .map(f => f.replace(baseDir,''))
+            let memberFiles = Object.keys(cmd.files)
+            let ownerFiles = Object.keys(brume.fileData.grpFiles(cmd.owner, cmd.group))
             let addFiles = ownerFiles.filter(file=>!memberFiles.includes(file))
             let deleteFiles = memberFiles.filter(file=>!ownerFiles.includes(file))
+            let commonFiles = ownerFiles.filter(file=>memberFiles.includes(file))
 
             for(let file of addFiles) {
-              let {mod} = brume.fileData.get(file)
-              brume.eventQueue.push(
-                {action: 'add', file: file, member: cmd.syncFor}
-              )
+              brume.eventQueue.push({
+                action: 'add', file: file, member: username
+                ,pmod: brume.fileData.get(file).pmod, mod: brume.fileData.get(file).mod
+              })
             }
+
             for(let file of deleteFiles) {
-              brume.eventQueue.push(
-                {action: 'unlink', file: file, member: cmd.syncFor}
-              )
+              brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-NorD', member: username})
             }
+
+            for(let file of commonFiles) {
+              if(brume.fileData.get(file).mod > cmd.files[file].mod) {
+                brume.eventQueue.push({
+                  action: 'change', file: file, member: username
+                  ,pmod: brume.fileData.get(file).pmod, mod: brume.fileData.get(file).mod
+                })
+              } else if(brume.fileData.get(file).mod < cmd.files[file].mod) {
+                // mark file as conflict at source of sync
+                brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-OLD',
+                    member: username})
+                // send older file to source of sync
+                brume.eventQueue.push({action: 'add', file: file, member: username})
+              }
+            }
+
             peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd.action}));
             peer.destroy()
             resolve()
             return
 
           case 'syncReq':
+            if(brume.groupInfo.memberStatus(username) == 'notconnected') {
+              brume.groupInfo.memberStatus(username, 'active')
+            }
             brume.groupInfo.sendSync(cmd.owner, cmd.group)
             peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd.action}));
             peer.destroy()
@@ -129,30 +142,57 @@ function offerProcessor(offer, username) {
               return
             }
             break
+          case 'rename':
+            try {
+              await fs.promises.rename(baseDir + cmd.file, baseDir + cmd.newFile)
+              brume.groupInfo.networkEvents.add({action: 'unlink', file: cmd.file})
+              resp = {type: 'SUCCESS', cmd: cmd}
+            } catch (e) {
+              resp = {type: 'ERROR', error: err}
+              console.log(`receiver:    rename error ${e.message}`)
+            } finally {
+              peer.send(JSON.stringify(resp));
+              peer.destroy();
+              resolve();
+              return
+            }
+            break
 
-          case 'add':
           case 'change':
-            resp = {type: 'SUCCESS', cmd: cmd}
-
             if(cmd.file.split('/')[2] != '.members') {
-              if((cmd.action == 'add' && fs.existsSync(baseDir + cmd.file)) ||
-                 (cmd.action == 'change' && cmd.orig != brume.fileData.get(cmd.file).mod)) {
-                resp = {type: 'CONFLICT', cmd: {action: cmd.action, file: cmd.file}}
-                cmd.file += '-CONFLICT-' + username
+              let {pmod, mod} = brume.fileData.get(cmd.file)
+
+              if(pmod > cmd.pmod && mod > cmd.mod) {
+                console.log(`receiver:    conflict for ${cmd.file}`)
+                try {
+                  await fs.promises.rename(baseDir + cmd.file, baseDir + cmd.file + '-CONFLICT-' + brume.thisUser)
+                  brume.groupInfo.networkEvents.add({action: 'unlink', file: cmd.file})
+                  resp = {type: 'SUCCESS', cmd: cmd}
+                } catch (e) {
+                  console.log(`receiver:    CONFLICT handling error ${e.message}`)
+                  resp = {type: 'ERROR', error: err}
+                } finally {
+                  peer.send(JSON.stringify(resp));
+                  peer.destroy();
+                  resolve();
+                  return
+                }
               }
             }
 
-            brume.fileData.set(cmd.file, {mod: cmd.mod})
+          case 'add':
+            resp = {type: 'SUCCESS', cmd: cmd}
             brume.groupInfo.networkEvents.add(cmd)
             var outStream;
 
             try {
               if(cmd.action == 'add') {
+                brume.fileData.set(cmd.file, {pmod: cmd.pmod, mod: cmd.mod})
                 fs.mkdirSync(baseDir + dirname(cmd.file), {recursive: true})
               }
               outStream = fs.createWriteStream(baseDir + cmd.file)
             } catch (e) {
-              console.error('receiver:     add error', e.message)
+              console.error('receiver:     add/change error', e.message)
               peer.destroy()
               reject()
               return
