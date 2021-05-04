@@ -1,7 +1,6 @@
 "use strict"
-const {readdirSync, readFileSync, statSync} = require('fs')
+const {readdirSync, readFileSync, statSync, unlinkSync, promises: {utimes}} = require('fs')
       ,{join} = require('path')
-      ,{utimes} = require('fs').promises
       ,{round} = Math
       ,utimesEvents = new NetworkEvents()
 ;
@@ -57,17 +56,17 @@ function GroupInfo(baseDir, username) {
   this.sendSync = (user, group) => {
     // process any .retryOnSync commands for cmd.owner/cmd.group
     try {
-      for(let cmd of readFileSync(join(user, group,'.retryOnSync')).toString().split('\n').filter(e => e != '\n')) {
+      let retryFile = join(brume.baseDir, user, group,'.retryOnSync')
+      for(let cmd of readFileSync(retryFile).toString().split('\n').filter(e => e != '')) {
         brume.eventQueue.push(JSON.parse(cmd))
       }
-      unlinkSync(join(cmd.owner, cmd.group,'.retryOnSync'))
+      unlinkSync(retryFile)
     } catch (e) {
       if(!e.code == 'ENOENT') console.log('receiver:    .retryOnSync error ', e.message)
     }
 
     let cmd = {
       action: 'sync', member: user, owner: user, group: group
-      //,files: treeWalk(baseDir+user+'/'+ group).map(f => f.replace(baseDir,''))
       ,files: brume.fileData.grpFiles(user, group)
     }
     brume.eventQueue.push(cmd)  
@@ -198,12 +197,13 @@ class FileData extends Map {
 function Brume() {
   brume = this
   this.init = function (baseDir, username) {
+    this.baseDir = baseDir
     this.fileData = new FileData()
     const watcher = require('chokidar').watch('.', {cwd: baseDir, ignored: /-CONFLICT-/})
     function initAddHandler(path, stats) {
       let p = path.split('/')
       if((p.length == 3 && p[2] == '.members') || !path.match(/(^|[\/])\./)) {
-        brume.fileData.set(path, {pmod: 0, mod: round(stats.mtimeMs)})
+        brume.fileData.set(path, {pmod: round(stats.mtimeMs), mod: round(stats.mtimeMs)})
         console.log(`initadd ${path} ${JSON.stringify(brume.fileData.get(path))}`)
       }
     }

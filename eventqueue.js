@@ -8,11 +8,11 @@ function errorHandler(err) {
     case 'ENODEST':
       brume.groupInfo.memberStatus(err.peerName, 'notconnected')
       console.error(`sender:    ENODEST ${err.peerName} not connected\n`)
-      if(['add', 'change', 'unlink'].includes(err.cmd.action) && err.cmd.file.split('/')[0] == err.cmd.member) {
+      if(['add', 'change', 'unlink'].includes(err.cmd.action) && err.cmd.file.split('/')[0] == err.peerName) {
         // File cmd sent to group owner failed because owner not connected.
         // Queue for retry when owner comes back and abort cmd for any remaining group members
         try {
-          fs.writeFileSync(err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSyc', JSON.stringify(err.cmd)+'\n', {flag:'a'})
+          fs.writeFileSync(brume.baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
         } catch (e) {
           console.log(`sender:    error writing .retryOnSync ${e.message}`)
         }

@@ -102,10 +102,13 @@ function offerProcessor(offer, username) {
                 })
               } else if(brume.fileData.get(file).mod < cmd.files[file].mod) {
                 // mark file as conflict at source of sync
-                brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-OLD',
+                brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-NEW',
                     member: username})
                 // send older file to source of sync
-                brume.eventQueue.push({action: 'add', file: file, member: username})
+                brume.eventQueue.push({
+                  action: 'add', file: file, member: username
+                  ,pmod: brume.fileData.get(file).pmod, mod: brume.fileData.get(file).mod
+                })
               }
             }
 
@@ -144,7 +147,7 @@ function offerProcessor(offer, username) {
             break
           case 'rename':
             try {
-              await fs.promises.rename(baseDir + cmd.file, baseDir + cmd.newFile)
+              await fs.renameSync(baseDir + cmd.file, baseDir + cmd.newFile)
               brume.groupInfo.networkEvents.add({action: 'unlink', file: cmd.file})
               resp = {type: 'SUCCESS', cmd: cmd}
             } catch (e) {
@@ -162,17 +165,16 @@ function offerProcessor(offer, username) {
             if(cmd.file.split('/')[2] != '.members') {
               let {pmod, mod} = brume.fileData.get(cmd.file)
 
-              if(pmod > cmd.pmod && mod > cmd.mod) {
+              if(pmod != cmd.pmod || mod > cmd.mod) {
                 console.log(`receiver:    conflict for ${cmd.file}`)
                 try {
-                  await fs.promises.rename(baseDir + cmd.file, baseDir + cmd.file + '-CONFLICT-' + brume.thisUser)
+                  //let ofile = baseDir + cmd.file + (pmod != cmd.pmod ? '-VERSION' : '') + (mod > cmd.mod ? '-NEWER' : '') + '-CONFLICT-' + username
+                  fs.renameSync(baseDir + cmd.file, baseDir + cmd.file + 
+                    (pmod != cmd.pmod ? '-VERSION' : '') + (mod > cmd.mod ? '-NEWER' : '') + '-CONFLICT-' + username)
                   brume.groupInfo.networkEvents.add({action: 'unlink', file: cmd.file})
-                  resp = {type: 'SUCCESS', cmd: cmd}
                 } catch (e) {
                   console.log(`receiver:    CONFLICT handling error ${e.message}`)
-                  resp = {type: 'ERROR', error: err}
-                } finally {
-                  peer.send(JSON.stringify(resp));
+                  peer.send(JSON.stringify({type: 'ERROR', error: err}));
                   peer.destroy();
                   resolve();
                   return
@@ -182,12 +184,13 @@ function offerProcessor(offer, username) {
 
           case 'add':
             resp = {type: 'SUCCESS', cmd: cmd}
+            brume.fileData.set(cmd.file, {pmod: cmd.mod, mod: cmd.mod})
             brume.groupInfo.networkEvents.add(cmd)
             var outStream;
 
             try {
               if(cmd.action == 'add') {
-                brume.fileData.set(cmd.file, {pmod: cmd.pmod, mod: cmd.mod})
+                //brume.fileData.set(cmd.file, {pmod: cmd.pmod, mod: cmd.mod})
                 fs.mkdirSync(baseDir + dirname(cmd.file), {recursive: true})
               }
               outStream = fs.createWriteStream(baseDir + cmd.file)
