@@ -53,8 +53,8 @@ function offerProcessor(offer, username) {
       peer.once('data', async data => {
         let cmd = JSON.parse(data.toString())
 
-        if(['add', 'change', 'unlink', 'send', 'syncReq'].includes(cmd.action)) {
-          if(['syncReq'].includes(cmd.action)) {
+        if(['add', 'change', 'unlink', 'send', 'sendChg', 'sync', 'syncReq'].includes(cmd.action)) {
+          if(['sync', 'syncReq'].includes(cmd.action)) {
             [, member, group] = [, cmd.owner, cmd.group]
           } else {
             [, member, group] = cmd.file.match('\(.*?\)/(.*?)/.*')
@@ -72,6 +72,13 @@ function offerProcessor(offer, username) {
         console.log(`receiver:    ${peer.channelName} ${JSON.stringify(cmd)}`)
         
         switch(cmd.action) {
+          /*case 'sendChg':
+            brume.eventQueue.push({
+              action: 'change', file: cmd.file
+              ,pmod: brume.fileData.get(cmd.file).pmod, mod: brume.fileData.get(cmd.file).mod
+            })
+            break*/
+
           case 'sync':
             if(brume.groupInfo.memberStatus(username) == 'notconnected') {
               brume.groupInfo.memberStatus(username, 'active')
@@ -101,14 +108,19 @@ function offerProcessor(offer, username) {
                   ,pmod: brume.fileData.get(file).pmod, mod: brume.fileData.get(file).mod
                 })
               } else if(brume.fileData.get(file).mod < cmd.files[file].mod) {
-                // mark file as conflict at source of sync
-                brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-NEW',
-                    member: username})
-                // send older file to source of sync
-                brume.eventQueue.push({
-                  action: 'add', file: file, member: username
-                  ,pmod: brume.fileData.get(file).pmod, mod: brume.fileData.get(file).mod
-                })
+/*                if(brume.fileData.get(file).pmod == cmd.files[file].pmod) {
+                  // member changed while offline - have it distribute change
+                  brume.eventQueue.push({action: 'sendChg', file: file, member: username})
+                } else {*/
+                  // mark file as conflict at source of sync
+                  brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-NEW',
+                      member: username})
+                  // send older file to source of sync
+                  brume.eventQueue.push({
+                    action: 'add', file: file, member: username
+                    ,pmod: brume.fileData.get(file).pmod, mod: brume.fileData.get(file).mod
+                  })
+                //}
               }
             }
 
