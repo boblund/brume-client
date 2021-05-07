@@ -203,7 +203,8 @@ function Brume() {
     function initAddHandler(path, stats) {
       let p = path.split('/')
       if((p.length == 3 && p[2] == '.members') || !path.match(/(^|[\/])\./)) {
-        brume.fileData.set(path, {pmod: round(stats.mtimeMs), mod: round(stats.mtimeMs)})
+        //brume.fileData.set(path, {pmod: stats.mtime.toISOString(), mod: stats.mtime.toISOString()})
+        brume.fileData.set(path, {mod: stats.mtime.toISOString()})
         console.log(`initadd ${path} ${JSON.stringify(brume.fileData.get(path))}`)
       }
     }
@@ -240,13 +241,15 @@ function Brume() {
             case 'change':
               if(brume.groupInfo.networkEvents.remove(cmd) == -1) {
                 cmd.pmod = event == 'change' ? brume.fileData.get(path).mod : 0
-                cmd.mod = round(statSync(join(baseDir, path), {throwIfNoEntry: false}).mtimeMs)
-                brume.fileData.set(cmd.file, {pmod: cmd.mod, mod: cmd.mod})
+                cmd.mod = statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
+                //brume.fileData.set(cmd.file, {pmod: cmd.mod, mod: cmd.mod})
+                brume.fileData.set(cmd.file, {mod: cmd.mod})
                 brume.eventQueue.push(cmd)
               } else {
                 try {
                   utimesEvents.add({action: 'change', file: path})
-                  await utimes(baseDir+path, brume.fileData.get(path).mod/1000, brume.fileData.get(path).mod/1000)
+                  let date = new Date(brume.fileData.get(path).mod)
+                  await utimes(baseDir+path, date, date)
                 } catch (e) {
                   console.log(`watcher:    error setting ${path} times ${e.message}`)
                 }
