@@ -20,9 +20,11 @@ async function doCommand(member, cmd){
         //console.log(`sender:    ${peer.channelName} on data` )
         result = JSON.parse(data.toString())
         if(result.type == 'SUCCESS') {
-          //if(cmd.action =='add') {
-          //  brume.fileData.set(cmd.file, brume.fileData.get(cmd.file).added=true)
-          //}
+          if(cmd.action == 'sync') {
+            for(let file of result.syncedFiles) {
+              brume.fileData.setSync(file, true)
+            }
+          }
           resolve(result)
         } else {
           //reject(result)

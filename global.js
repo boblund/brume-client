@@ -192,6 +192,13 @@ class FileData extends Map {
     })
     return files
   }
+
+  setSync = (f, v) => {
+    if(f.split('/')[0] != brume.thisUser) {
+      // only set sync for group members
+      this.set(f, {...this.get(f), ...{synced: v}})
+    }
+  }
 }
 
 function Brume() {
@@ -203,8 +210,8 @@ function Brume() {
     function initAddHandler(path, stats) {
       let p = path.split('/')
       if((p.length == 3 && p[2] == '.members') || !path.match(/(^|[\/])\./)) {
-        //brume.fileData.set(path, {pmod: stats.mtime.toISOString(), mod: stats.mtime.toISOString()})
         brume.fileData.set(path, {mod: stats.mtime.toISOString()})
+        brume.fileData.setSync(path, false)
         console.log(`initadd ${path} ${JSON.stringify(brume.fileData.get(path))}`)
       }
     }
@@ -244,6 +251,7 @@ function Brume() {
                 cmd.mod = statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
                 //brume.fileData.set(cmd.file, {pmod: cmd.mod, mod: cmd.mod})
                 brume.fileData.set(cmd.file, {mod: cmd.mod})
+                brume.fileData.setSync(cmd.file, false)
                 brume.eventQueue.push(cmd)
               } else {
                 try {
