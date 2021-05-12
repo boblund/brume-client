@@ -83,45 +83,50 @@ function offerProcessor(offer, username) {
             if(brume.groupInfo.memberStatus(username) == 'notconnected') {
               brume.groupInfo.memberStatus(username, 'active')
             }
-            
-            let memberFiles = Object.keys(cmd.files).filter(f => f.split('/')[0] == brume.thisUser) //only sync my files
-            let ownerFiles = Object.keys(brume.fileData.grpFiles(cmd.owner, cmd.group))
-            let addFiles = ownerFiles.filter(file=>!memberFiles.includes(file))
-            let deleteFiles = memberFiles.filter(file=>!ownerFiles.includes(file))
-            let commonFiles = ownerFiles.filter(file=>memberFiles.includes(file))
-            let syncedFiles = []
 
-            for(let file of addFiles) {
-              brume.eventQueue.push({
-                action: 'add', file: file, member: username //, sync: true
-                ,pmod: brume.fileData.get(file).mod, mod: brume.fileData.get(file).mod
-              })
-            }
+            if(!(brume.groupInfo.getMembers(brume.thisUser, cmd.group).includes(username))){
+              resp = {type: 'peerError', error: {code: 'ENOTMEMBER'}}
+            } else {
+              let memberFiles = Object.keys(cmd.files).filter(f => f.split('/')[0] == brume.thisUser) //only sync my files
+              let ownerFiles = Object.keys(brume.fileData.grpFiles(cmd.owner, cmd.group))
+              let addFiles = ownerFiles.filter(file=>!memberFiles.includes(file))
+              let deleteFiles = memberFiles.filter(file=>!ownerFiles.includes(file))
+              let commonFiles = ownerFiles.filter(file=>memberFiles.includes(file))
+              let syncedFiles = []
 
-            for(let file of deleteFiles) {
-              brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-NorD', member: username})
-            }
-
-            for(let file of commonFiles) {
-              if(brume.fileData.get(file).mod > cmd.files[file].mod) {
-                brume.eventQueue.push({
-                  action: 'change', file: file, member: username, sync: true
-                  ,pmod: brume.fileData.get(file).mod, mod: brume.fileData.get(file).mod
-                })
-              } else if(brume.fileData.get(file).mod < cmd.files[file].mod) {
-                brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-newer',
-                    member: username})
-                // send older file to source of sync
+              for(let file of addFiles) {
                 brume.eventQueue.push({
                   action: 'add', file: file, member: username //, sync: true
                   ,pmod: brume.fileData.get(file).mod, mod: brume.fileData.get(file).mod
                 })
-              } else {
-                syncedFiles.push(file)
               }
+
+              for(let file of deleteFiles) {
+                brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-NorD', member: username})
+              }
+
+              for(let file of commonFiles) {
+                if(brume.fileData.get(file).mod > cmd.files[file].mod) {
+                  brume.eventQueue.push({
+                    action: 'change', file: file, member: username, sync: true
+                    ,pmod: brume.fileData.get(file).mod, mod: brume.fileData.get(file).mod
+                  })
+                } else if(brume.fileData.get(file).mod < cmd.files[file].mod) {
+                  brume.eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-newer',
+                      member: username})
+                  // send older file to source of sync
+                  brume.eventQueue.push({
+                    action: 'add', file: file, member: username //, sync: true
+                    ,pmod: brume.fileData.get(file).mod, mod: brume.fileData.get(file).mod
+                  })
+                } else {
+                  syncedFiles.push(file)
+                }
+              }
+              resp = {type: 'SUCCESS', cmd: cmd.action, syncedFiles: syncedFiles}
             }
 
-            peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd.action, syncedFiles: syncedFiles}));
+            peer.send(JSON.stringify(resp));
             peer.destroy()
             resolve()
             return
@@ -137,22 +142,30 @@ function offerProcessor(offer, username) {
             break
 
           case 'unlink':
-            brume.groupInfo.networkEvents.add(cmd)
-            try {
-              let base, path
-              [, base, path] = cmd.file.match(/(.*?\/.*?)\/(.*)/)
-              rmPath(path, join(baseDir, base))
-              resp = {type: 'SUCCESS', cmd: cmd}
-            } catch (err) {
-              resp = {type: 'ERROR', error: err}
-              console.log(`receiver:   unlink error ${err}`)
-            } finally {
-              brume.fileData.delete(cmd.file)
-              peer.send(JSON.stringify(resp));
-              peer.destroy();
-              resolve();
-              return
+            resp = {type: 'SUCCESS', cmd: cmd}
+
+            if(cmd.file.split('/')[2] == '.members' && cmd.file.split('/')[0] == brume.thisUser) {
+              // Sent by group member leaving group. Don't delete local .members but remove from group
+              brume.groupInfo.updateMembers(brume.thisUser, group, 'unlink', username) 
+            } else {
+              brume.groupInfo.networkEvents.add(cmd)
+              try {
+                let base, path
+                [, base, path] = cmd.file.match(/(.*?\/.*?)\/(.*)/)
+                rmPath(path, join(baseDir, base))
+              } catch (err) {
+                resp = {type: 'ERROR', error: err}
+                console.log(`receiver:   unlink error ${err}`)
+              } finally {
+                brume.fileData.delete(cmd.file)
+              }
             }
+
+            peer.send(JSON.stringify(resp));
+            peer.destroy();
+            resolve();
+            return
+
             break
           case 'rename':
             // only accept if from file owner

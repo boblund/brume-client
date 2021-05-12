@@ -32,6 +32,7 @@ async function doCommand(member, cmd){
             code: result.error.code   //ENOTMEMBER
             , peerName: member
             , channelName: peer.channelName
+            , cmd: cmd
           })
         }
       })

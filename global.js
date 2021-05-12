@@ -1,7 +1,6 @@
 "use strict"
-const {readdirSync, readFileSync, statSync, unlinkSync, promises: {utimes}} = require('fs')
+const {readdirSync, readFileSync, rmdirSync, statSync, unlinkSync, writeFileSync, promises: {utimes}} = require('fs')
       ,{join} = require('path')
-      ,{round} = Math
       ,utimesEvents = new NetworkEvents()
 ;
 
@@ -44,9 +43,15 @@ function GroupInfo(baseDir, username) {
     return groupData[user] ? (groupData[user][group] ? true : false) : false
   }
 
-  this.rmMember = (member, group) => {
+  this.rmGroup = (member, group) => {
     delete groupData[member][group]
   }
+
+  this.addGroup = (member, group) => {
+    groupData[member] = {}
+    groupData[member][group] = { members: []}
+  }
+
 
   this.memberStatus = (member, status) => {
     if(!memberStatus[member]) memberStatus[member] = 'active'
@@ -77,34 +82,41 @@ function GroupInfo(baseDir, username) {
     brume.eventQueue.push({action: 'syncReq', member: user, owner: username, group: group})
   }
 
-  this.updateMembers = (user, group, action) => {
+  // ?? Modify this ?? Only thisUser should be modifying group/.members
+  this.updateMembers = (user, group, action, member=null) => {
     let p = baseDir+user
         , newMembers =[]
+        , added = []
+        , removed = []
+    
+    if(!(member == 'null' && action == 'unlink')) {
+      try { // if add, change or (unlinked && member == null)
+        newMembers = JSON.parse(readFileSync(p+'/'+group+'/.members'))
+      } catch(e) {
+        if(e.message && e.message.includes('Unexpected token')) {
+          console.log('updateMembers:    ', e.message)
+          // messed up .members; can't tell what to do
+          return
+        }
+      }
+    }
 
     switch(action) {
       case 'unlink':
-        break;
+        // If member != null came from member unlinking their .members file
+        newMembers = member ? newMembers.filter(m => m != member) : []
 
       case 'add':
       case 'change':
-        try {
-          newMembers = JSON.parse(readFileSync(p+'/'+group+'/.members'))
-        } catch(e) {
-          if(e.message && e.message.includes('Unexpected token')) {
-            // messed up .members; can't tell what to do
-            return
-          }
-        }
+        added = newMembers.filter(m => !groupData[user][group].members.includes(m))
+        removed = groupData[user][group].members.filter(m => !newMembers.includes(m))
+  
         break;
 
       default:
         console.log(`brume-client:    updateMembers unknown action ${action}`)
         return
     }
-
-    let added = newMembers
-      .filter(m => !groupData[user][group].members.includes(m))
-    let removed = groupData[user][group].members.filter(m => !newMembers.includes(m))
 
     // Do following only for this user, i.e. username)
     if(user == username) {
@@ -115,8 +127,10 @@ function GroupInfo(baseDir, username) {
       })
     
       if(removed.length > 0) {
-        // Delete everything for all removed members
-        let files = Object.keys(brume.fileData.grpFiles(user, group))
+        let dotMembers = join(user, group, '.members')
+        // Delete everything for all removed members. Make sure .members is the last thing deleted
+        let files = Object.keys(brume.fileData.grpFiles(user, group)).filter(f => f != dotMembers)
+        if(member == null) files.push(dotMembers)   // if member != null .members deletion caused this update
 
         removed.forEach(member => {
           files.forEach(file => {
@@ -127,6 +141,12 @@ function GroupInfo(baseDir, username) {
     }
 
     groupData[user][group] = { members: newMembers}
+    try{
+      writeFileSync(join(brume.baseDir, user, group, '.members'), JSON.stringify(newMembers))
+      brume.groupInfo.networkEvents.add({action: 'change', file: join(user, group, '.members')})
+    } catch(e) {
+      console.log('updateMembers:    error', e.message)
+    }
   }
 
   // init groupInfo
@@ -233,11 +253,12 @@ function Brume() {
 
           // ignore all .dotfiles except user/group/.members
           if(path.match(/(^|[\/])\./)) {
-            if(['add','change', 'unlink'].includes(event) &&
-               p.length == 3 &&
-               p[2] == '.members'/* &&
-               p[0] == brume.thisUser*/){
-              brume.groupInfo.updateMembers(p[0], p[1], cmd.action)
+            if(['add','change', 'unlink'].includes(event) && p.length == 3 && p[2] == '.members') {
+              if(p[0] == brume.thisUser && brume.groupInfo.networkEvents.remove(cmd) == -1){
+                brume.groupInfo.updateMembers(p[0], p[1], cmd.action)
+              } else if(event != 'unlink') {
+                return
+              }
             } else {
               return
             }
@@ -268,21 +289,31 @@ function Brume() {
             case 'unlink':
               brume.fileData.delete(path)
               if(brume.groupInfo.networkEvents.remove(cmd) == -1) {
-                brume.eventQueue.push(cmd)
+                // unlink generated by local user
+                if(p[2] == '.members') cmd.member = p[0]  // only send unlink .members to group owner
+                brume.eventQueue.push(cmd) 
+              } else {
+                // unlink generated by network command
+                if(p[2] == '.members' && p[0] != brume.thisUser){
+                  // This member removed by owner. Remove group directory under owner
+                  try {rmdirSync(brume.baseDir+p[0]+'/'+p[1])}catch(e){console.log('watcher:    unlink error:', e.message)}
+                }
               }
+              
               break
     
             case 'addDir':
-              p = path.split('/')
-              if(p.length ==2 && p[0] != thisUser) {
+              //p = path.split('/')
+              if(p.length ==2 && p[0] != brume.thisUser) {
+                brume.groupInfo.addGroup(p[0], p[1])
                 brume.groupInfo.sendSync(p[0], p[1])
               } 
               break
     
             case 'unlinkDir':
               p = path.split('/')
-              if(p.length ==2 && p[0] != thisUser) {
-                brume.groupInfo.rmMember(p[0], p[1])
+              if(p.length ==2 && p[0] != brume.thisUser) {
+                brume.groupInfo.rmGroup(p[0], p[1])
               }
           }
         })
