@@ -27,7 +27,9 @@ function errorHandler(err) {
       
     case 'ENOTMEMBER':
       brume.groupInfo.memberStatus(err.peerName, 'notconnected')
-      console.error(`sender:    ENOTMEMBER ${err.peerName} not member of ${err.cmd.group}\n`)
+      console.error('sender:    ENOTMEMBER '
+        + (err.cmd.action=='syncReq'?err.cmd.dest:'')
+        + ' not member of ' + (err.cmd.action=='syncReq' ? brume.thisUser : err.cmd.owner) + '/' + err.cmd.group)
       break
 
     default:
@@ -50,25 +52,26 @@ async function eventQueueProcessor(qEntry) {
     }
   }
 
-  let members = qEntry.member
-    ? [qEntry.member]
+  let dests = qEntry.dest
+    ? [qEntry.dest]
     : [user].concat(brume.groupInfo.getMembers(user, group)).filter(m => m != brume.thisUser)
 
-  if(members.length == 0) {
-    console.log(`sender:    WARNING no members for group ${group}`)
+  if(dests.length == 0) {
+    console.log(`sender:    WARNING no dests for group ${group}`)
     return
   }
 
-  for(let member of members.filter(m => brume.groupInfo.memberStatus(m) == 'active')) {
+  for(let dest of dests.filter(m => brume.groupInfo.memberStatus(m) == 'active')) {
     let result
     try {
-      result = await cmdProcessor(member, qEntry)
+      result = await cmdProcessor(dest, qEntry)
       // Move to errorHandler?
       if(result.type == 'CONFLICT') {
-        networkEvents.add({action: 'unlink', file: cmd.file})
-        networkEvents.add({action: 'add', file: cmd.file +'-CONFLICT-'+member})
-        await fs.promises.rename(baseDir+cmd.file, baseDir+cmd.file +'-CONFLICT-'+member)
-        brume.eventQueue.push({action: 'send', file: cmd.file})
+        console.log('eventQueueProcessor:   result.type == CONFLICT not handled')
+/*        networkEvents.add({action: 'unlink', file: cmd.file})
+        networkEvents.add({action: 'add', file: cmd.file +'-CONFLICT-'+dest})
+        await fs.promises.rename(baseDir+cmd.file, baseDir+cmd.file +'-CONFLICT-'+dest)
+        brume.eventQueue.push({action: 'send', file: cmd.file})*/
       }
     } catch (e) {
       e.cmd = e.cmd ? e.cmd : qEntry

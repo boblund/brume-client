@@ -1,20 +1,17 @@
 const brume = require('./global.js')
       ,{EventQueue} = require('./eventqueue.js')
-      //,{statSync} = require('fs')
-      //,{join} = require('path')
-      //,{round} = Math
 ;
 
 var PeerConnection
     , baseDir = null
 ;
-async function doCommand(member, cmd){
+async function doCommand(dest, cmd){
   return new Promise(async (resolve, reject) => {
     let peerConnection = new PeerConnection('sender'),
     peer = null;
     try {
-      peer = await peerConnection.open(member)
-      console.log(`sender:    ${peer.channelName} ${member} ${JSON.stringify(cmd)}`)
+      peer = await peerConnection.open(dest)
+      console.log(`doCommand:    ${dest} ${JSON.stringify(cmd)}`) //${peer.channelName} 
 
       peer.on('data', (data) => {
         //console.log(`sender:    ${peer.channelName} on data` )
@@ -30,7 +27,7 @@ async function doCommand(member, cmd){
           //reject(result)
           reject({
             code: result.error.code   //ENOTMEMBER
-            , peerName: member
+            , peerName: dest
             , channelName: peer.channelName
             , cmd: cmd
           })
