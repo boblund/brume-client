@@ -32,7 +32,7 @@ if(process.argv.length == 3) {
 try {
   var {baseDir, token, url} = JSON.parse(fs.readFileSync(configFile, 'utf-8'))
   baseDir = baseDir.replace('./','')
-  url = process.env.LOCAL ? 'ws://localhost:' + process.env.LOCAL : url
+  url = process.env.LOCAL ? 'ws://' + process.env.LOCAL : url
   if(!baseDir || !token || !url) throw('baseDir, token or url not set')
 } catch(e) {
   console.error(`brume-client:    Brume config error ${configFile} ${e}`)
