@@ -29,7 +29,7 @@ function errorHandler(err) {
       brume.groupInfo.memberStatus(err.peerName, 'notconnected')
       console.error('sender:    ENOTMEMBER '
         + (err.cmd.action=='syncReq'?err.cmd.dest:'')
-        + ' not member of ' + (err.cmd.action=='syncReq' ? brume.thisUser : err.cmd.owner) + '/' + err.cmd.group)
+        + ' not member of ' + (err.cmd.action=='syncReq' ? brume.thisUser : err.cmd.dest) + '/' + err.cmd.group)
       break
 
     default:

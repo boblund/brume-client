@@ -17,6 +17,5 @@
 
 ## To Do
 1. Clean up all group operations in groupInfo
-1. Clean up fields in sync cmd
 1. Clean up ENOTMEMBER handling and message
 1. Replaced conflict processing in eventQueueProcessor with message saying it's not handled. Remove after some testing

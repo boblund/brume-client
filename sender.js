@@ -85,13 +85,6 @@ brume.eventQueue = new EventQueue(doCommand)
 function sender({PeerConnection: _pc, baseDir: _bd, thisMember}) {
   PeerConnection = _pc
   baseDir = _bd
-
-  // eventQueue is constructed to not process queue entries until explicitly started
-  // after the PeerConnection class is created
-
-  //brume.eventQueue.start()
-
-
 }
 
 module.exports=sender
