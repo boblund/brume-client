@@ -68,10 +68,6 @@ async function eventQueueProcessor(qEntry) {
       // Move to errorHandler?
       if(result.type == 'CONFLICT') {
         console.log('eventQueueProcessor:   result.type == CONFLICT not handled')
-/*        networkEvents.add({action: 'unlink', file: cmd.file})
-        networkEvents.add({action: 'add', file: cmd.file +'-CONFLICT-'+dest})
-        await fs.promises.rename(baseDir+cmd.file, baseDir+cmd.file +'-CONFLICT-'+dest)
-        brume.eventQueue.push({action: 'send', file: cmd.file})*/
       }
     } catch (e) {
       e.cmd = e.cmd ? e.cmd : qEntry
