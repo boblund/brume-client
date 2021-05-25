@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 "use strict"
 
 const brume = require('./global.js')
@@ -7,49 +8,18 @@ const brume = require('./global.js')
       , sender = require("./sender.js")
       , receiver = require("./receiver.js")
       , createWebsocket = require('./websocket.js')
-      , osConfigLocs = {
-          linux: '/etc/brume/brume.conf'
-          ,win32: process.env.PROGRAMDATA + '/brume.conf'
-          ,darwin: '/usr/local/etc/brume/brume.conf'
-        }
+      , baseDir = process.env.BRUME_FILES ? process.env.BRUME_FILES : process.env.HOME+"/Brume/"
+      , configFile = process.argv.length == 3
+          ? process.argv[2]
+          : process.env.BRUME_CONFIG
+            ? process.env.BRUME_CONFIG
+            : process.env.HOME+'/.config/Brume/brume.conf'
 ;
-
-
-var configFile
-
-if(process.argv.length == 3) {
-  configFile = process.argv[2]
-} else if(process.env.BRUME_CONFIG) {
-  configFile = process.env.BRUME_CONFIG
-} else if(process.env.HOME) {
-  try {
-    configFile = process.env.HOME + '/.brume.conf'
-    fs.statSync(configFile).isFile()
-  } catch (e) {
-    configFile = osConfigLocs[process.platform]
-  }
-} 
-
-/*
-try {
-  var {baseDir, token, url} = JSON.parse(fs.readFileSync(configFile, 'utf-8'))
-  baseDir = baseDir.replace('./','')
-  url = process.env.LOCAL ? 'ws://' + process.env.LOCAL : url
-  var {username} = jwt.decode(token)
-brume.thisUser = username
-brume.init(baseDir, username)
-  if(!baseDir || !token || !url) throw('baseDir, token or url not set')
-} catch(e) {
-  console.error(`brume-client:    Brume config error ${configFile} ${e}`)
-  process.exit(1)
-}
-*/
 
 (async function() {
   try {
-    var {baseDir, token, url} = JSON.parse(fs.readFileSync(configFile, 'utf-8'))
-    baseDir = baseDir.replace('./','')
-    let [addr, port] = process.env.WSSERVER ? process.env.WSSERVER.split(':') : [null, null]
+    var {token, url} = JSON.parse(fs.readFileSync(configFile, 'utf-8'))
+    let [addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null]
     port = port ? ':' + port : ''
     url = addr
       ? 'ws://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
@@ -67,7 +37,9 @@ brume.init(baseDir, username)
   }
 
   try {
+    console.log('Starting brume-client username=', username)
     var ws = await createWebsocket(url, username, token)
+    console.log('Connected to brume-server @', url)
     var PeerConnection = require('./makePeerConnection.js')(ws, username)
     sender({PeerConnection: PeerConnection, baseDir: baseDir, thisMember: username})
     receiver({PeerConnection, baseDir})
