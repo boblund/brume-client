@@ -25,6 +25,11 @@ Actions (add, delete, modify) on the the content of the group by the owner are a
 
 Special file .members contains the name of members for each group. File .wsserver contains information required to connect to the Brume service
 
+Figure 1 is a graphical representation of the example described above.    
+
+<br/>
+<center><img src="./fig1.png"><br/><h3>Figure 1</h3></center>
+
 ## Getting started
 
 ### Create a Brume account
@@ -35,12 +40,35 @@ You will receive an email with your account configuration information that is ne
 
 ### Install Brume
 
+```
+git clone brume-client
+cd brume-client
+npm install
+mkdir ~/Brume
+mkdir -p ~/.config/Brume
+cp your_brume_config ~/.config/Brume/brume.conf
+```
 
-Download the installer appropriate for your operating system. 
-Figure 1 is a graphical representation of the example described above.    
+If ```/usr/local/bin/brume-client``` does not exist do the following four steps.
 
-<br/>
-<center><img src="./fig1.png"><br/><h3>Figure 1</h3></center>
+```
+sudo mkdir -p /usr/local/lib/brume
+cp -r *.js node_modules /usr/local/lib/brume/
+sudo ln -s /usr/local/lib/brume/brume-client.js /usr/local/bin/brume-client
+sudo chmod 755 /usr/local/bin/brume-client
+```
+
+Install a per user systemd service that will start (and restart) the brume-client as a daemon when the user is logged in.
+
+```
+mkdir -p ~/.config/systemd/user
+ln -s $PWD/services/linux/brume-client.service $HOME/.config/systemd/user/brume-client.service
+systemctl --user enable brume-client
+systemctl --user start brume-client
+```
+
+Check the daemon status with ```systemctl --user status brume-client```.
+Log output can be viewed by ```journalctl --user-unit brume-client```. 
 
 ## Brume architecture
 <br/>
