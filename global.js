@@ -250,11 +250,11 @@ function Brume() {
       watcher
         .removeListener('add', initAddHandler)
         .on('all', async (event, path) => {
-          console.log('watcher:   ', event, path)
           if(utimesEvents.remove({action: event, file: path}) > -1) {
             return
           }
 
+          console.log('watcher:   ', event, path)
           let p = path.split('/')
               ,cmd = {action: event, file: path}
 
@@ -280,7 +280,6 @@ function Brume() {
 
                 cmd.pmod = event == 'change' ? brume.fileData.get(path).mod : 0
                 cmd.mod = statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
-                //brume.fileData.set(cmd.file, {pmod: cmd.mod, mod: cmd.mod})
                 brume.fileData.set(cmd.file, {mod: cmd.mod})
                 brume.fileData.setSync(cmd.file, false)
                 brume.eventQueue.push(cmd)
@@ -307,10 +306,11 @@ function Brume() {
               break
     
             case 'addDir':
-              //p = path.split('/')
-              if(p.length ==2 && p[0] != brume.thisUser) {
+              if(p.length == 2) {
                 brume.groupInfo.addGroup(p[0], p[1])
-                brume.groupInfo.sendSync(p[0], p[1])
+                if(p[0] != brume.thisUser) {
+                  brume.groupInfo.sendSync(p[0], p[1])
+                }
               } 
               break
     

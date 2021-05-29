@@ -9,6 +9,7 @@ Brume is distinguished from other peer-to-peer file sharing, such as File Pizza 
 Brume shared content is organized by ```groups```. A Brume ```user```, the ```owner```of a ```group``` adds content to the ```group``` that is shared with other ```users``` who are ```members``` of the group. Sharing is one way - from the ```owner``` to the ```members```. Below is a simple example where Bob shares Bob/group/file with Alice and Alice shares Alice/group/file with Bob. 
 
 ```
+<strong>Bob's Computer</strong>
 BrumeFiles-Bob/            BrumeFiles-Alice/
 ├── Alice                  ├── Alice
 │   └── group              │   └── group
@@ -69,6 +70,18 @@ systemctl --user start brume-client
 
 Check the daemon status with ```systemctl --user status brume-client```.
 Log output can be viewed by ```journalctl --user-unit brume-client```. 
+
+## Join a group
+
+Let's say Brume user ```bob``` invites you to share his group ```group1```. You can do so by creating the appropriate folder under ```~/Brume```, i.e.
+
+```
+mkdir -p ~/Brume/bob/group1
+```
+
+This will cause your brume-client to synchronize with ```bob/group1```.
+After a short delay you should see shared files in ```~/Brume/bob/group1```.
+You can modify these files, or add a new one, and changes will be reflected on all other group members' devices.
 
 ## Brume architecture
 <br/>
