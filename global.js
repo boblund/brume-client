@@ -6,6 +6,10 @@ const {readdirSync, readFileSync, rmdirSync, statSync, unlinkSync, writeFileSync
 
 var brume
 
+function debug(...args){
+	console.log(...args)
+}
+
 function NetworkEvents() {
   var networkEvents = []
 
@@ -283,6 +287,7 @@ function Brume() {
                 brume.fileData.set(cmd.file, {mod: cmd.mod})
                 brume.fileData.setSync(cmd.file, false)
                 brume.eventQueue.push(cmd)
+								debug('watcher:    eventEnqueue', cmd)
               } else {
                 try {
                   utimesEvents.add({action: 'change', file: path})

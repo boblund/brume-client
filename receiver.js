@@ -203,7 +203,7 @@ function offerProcessor(offer, src) {
             resp = {type: 'SUCCESS', cmd: cmd}
 
             if(cmd.action == 'add' && brume.fileData.get(cmd.file)) {
-              oFile = dirname(cmd.file)+fileParts[0]+'-CONFLICT-exists-'+src+(fileParts.length==2?'.'+fileParts[0]:'')               
+              oFile = dirname(cmd.file)+'/'+fileParts[0]+'-CONFLICT-exists-'+src+(fileParts.length==2?'.'+fileParts[0]:'')               
             } else if(cmd.action == 'change') {
               let {mod} = brume.fileData.get(cmd.file)
               if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
