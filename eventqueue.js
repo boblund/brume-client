@@ -1,5 +1,5 @@
 const fs = require('fs')
-      ,brume = require('./global.js')
+      ,{brume, debug} = require('./global.js')
 var cmdProcessor
 
 function errorHandler(err) {
@@ -38,46 +38,7 @@ function errorHandler(err) {
   return true
 }
 
-async function eventQueueProcessor(qEntry) {
-  //console.log(`sender:    processing ${JSON.stringify(qEntry)}`)
-  let user, group
- 
-  if(!(group = qEntry.group)) {
-    if(qEntry.file) {
-      user = qEntry.file.split('/')[0]
-      group = qEntry.file.split('/')[1]
-    } else {
-      console.log(`sender:    can't process without group`)
-      return
-    }
-  }
 
-  let dests = qEntry.dest
-    ? [qEntry.dest]
-    : [user].concat(brume.groupInfo.getMembers(user, group)).filter(m => m != brume.thisUser)
-
-  if(dests.length == 0) {
-    console.log(`sender:    WARNING no dests for group ${group}`)
-    return
-  }
-
-  for(let dest of dests.filter(m => brume.groupInfo.memberStatus(m) == 'active')) {
-    let result
-    try {
-      result = await cmdProcessor(dest, qEntry)
-      // Move to errorHandler?
-      if(result.type == 'CONFLICT') {
-        console.log('eventQueueProcessor:   result.type == CONFLICT not handled')
-      }
-    } catch (e) {
-      e.cmd = e.cmd ? e.cmd : qEntry
-      if(!errorHandler(e)) {
-        // abort for doing commands for this group
-        return
-      }
-    }
-  }
-}
 
 class EventQueue { 
   #a=[];
@@ -85,14 +46,12 @@ class EventQueue {
 
   constructor(_cmdProcessor){
     cmdProcessor = _cmdProcessor
-    this.#e = new (require('events')).EventEmitter();   
+    this.#e = new (require('events')).EventEmitter();
+    this.setCommandProcessor = (_cmd) => {cmdProcessor = _cmd}
   };
 
   start() {
-    //this.#e.once('data', () => {
       this.processQ()
-    //})
-    //this.#e.emit('data')
   }
   
   push(i) {
@@ -107,7 +66,43 @@ class EventQueue {
 
   async processQ(){
     while(this.length() > 0) {
-      await eventQueueProcessor(this.shift())
+      let user = null, group = null, qEntry = this.shift()
+       
+      if(!(group = qEntry.group)) {
+        if(qEntry.file) {
+          user = qEntry.file.split('/')[0]
+          group = qEntry.file.split('/')[1]
+        } else {
+          console.log(`sender:    can't process without group`)
+          return
+        }
+      }
+      
+      let dests = qEntry.dest
+        ? [qEntry.dest]
+        : [user].concat(brume.groupInfo.getMembers(user, group)).filter(m => m != brume.thisUser)
+    
+      if(dests.length == 0) {
+        console.log(`sender:    WARNING no dests for group ${group}`)
+        return
+      }
+      
+      for(let dest of dests.filter(m => brume.groupInfo.memberStatus(m) == 'active')) {
+        let result
+        try {
+          result = await cmdProcessor(dest, qEntry)
+          // Move to errorHandler?
+          if(result.type == 'CONFLICT') {
+            console.log('eventQueueProcessor:   result.type == CONFLICT not handled')
+          }
+        } catch (e) {
+          e.cmd = e.cmd ? e.cmd : qEntry
+          if(!errorHandler(e)) {
+            // abort for doing commands for this group
+            return
+          }
+        }
+      }
     }
     this.#e.once('data', () => {this.processQ()})
   }

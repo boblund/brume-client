@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict"
 
-const brume = require('./global.js')
+const {brume, debug} = require('./global.js')
       , fs = require('fs')
       , jwt = require('jsonwebtoken')
       , {resolve4} = require('mdns-resolver')
@@ -28,7 +28,6 @@ const brume = require('./global.js')
         ) + port
       : url
     var {username} = jwt.decode(token)
-    brume.thisUser = username
     brume.init(baseDir, username)
     if(!baseDir || !token || !url) throw('baseDir, token or url not set')
   } catch(e) {
@@ -43,42 +42,9 @@ const brume = require('./global.js')
     var PeerConnection = require('./makePeerConnection.js')(ws, username)
     sender({PeerConnection: PeerConnection, baseDir: baseDir, thisMember: username})
     receiver({PeerConnection, baseDir})
-
-    // eventQueue is constructed to not process queue entries until explicitly started
-    // after the PeerConnection class is created
-    brume.eventQueue.start()
+    brume.eventQueue.processQ() //start()
   } catch(e) {
     console.error("createWebsocket error:",e.code, ". Retry in one hour")
     setTimeout(main, 60*60*1000)
   }
 })()
-
-
-async function main() {
-  try {
-    var ws = await createWebsocket(url, username, token)
-    var PeerConnection = require('./makePeerConnection.js')(ws, username)
-    //init watcher
-    //build groupData (which creates eventQueue)
-
-
-    sender({
-      PeerConnection: PeerConnection
-      , baseDir: baseDir
-      , thisMember: username
-    })
-    receiver({
-      PeerConnection: PeerConnection
-      , baseDir: baseDir
-    })
-
-    // eventQueue is constructed to not process queue entries until explicitly started
-    // after the PeerConnection class is created
-    brume.eventQueue.start()
-  } catch(e) {
-    console.error("createWebsocket error:",e.code, ". Retry in one hour")
-    setTimeout(main, 60*60*1000)
-  }
-}
-
-//main()

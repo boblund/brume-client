@@ -4,8 +4,6 @@ const {readdirSync, readFileSync, rmdirSync, statSync, unlinkSync, writeFileSync
       ,utimesEvents = new NetworkEvents()
 ;
 
-var brume
-
 function debug(...args){
 	console.log(...args)
 }
@@ -32,8 +30,9 @@ function NetworkEvents() {
   }
 }
 
-function GroupInfo(baseDir, username) {
-  var groupData = {}
+function GroupInfo(brume) {
+  let {baseDir, thisUser, eventQueue, fileData} = brume
+      ,groupData = {}
       ,memberStatus = {}
   ;
 
@@ -71,7 +70,7 @@ function GroupInfo(baseDir, username) {
     try {
       let retryFile = join(brume.baseDir, owner, group,'.retryOnSync')
       for(let cmd of readFileSync(retryFile).toString().split('\n').filter(e => e != '')) {
-        brume.eventQueue.push(JSON.parse(cmd))
+        eventQueue.push(JSON.parse(cmd))
       }
       unlinkSync(retryFile)
     } catch (e) {
@@ -80,14 +79,14 @@ function GroupInfo(baseDir, username) {
 
     let cmd = {
       action: 'sync', dest: owner, group: group
-      ,files: brume.fileData.grpFiles(owner, group)
+      ,files: fileData.grpFiles(owner, group)
     }
-    brume.eventQueue.push(cmd)  
+    eventQueue.push(cmd)  
   }
 
   this.sendSyncReq = (member, group) => {
     this.memberStatus(member, 'active')
-    brume.eventQueue.push({action: 'syncReq', dest: member, group: group})
+    eventQueue.push({action: 'syncReq', dest: member, group: group})
   }
 
   this.updateMembers = (user, group, action, member=null) => {
@@ -130,8 +129,8 @@ function GroupInfo(baseDir, username) {
         return
     }
 
-    if(user == username) {
-      added.filter(m => m != username).forEach(member => {
+    if(user == thisUser) {
+      added.filter(m => m != thisUser).forEach(member => {
         this.memberStatus(member, 'active');
         this.sendSyncReq(member, group)
       })
@@ -139,12 +138,12 @@ function GroupInfo(baseDir, username) {
       if(removed.length > 0) {
         let dotMembers = join(user, group, '.members')
         // Delete everything for all removed members. Make sure .members is the last thing deleted
-        let files = Object.keys(brume.fileData.grpFiles(user, group)).filter(f => f != dotMembers)
-        if(member == null) files.push(dotMembers)   // if member != null .members deletion caused this update
+        let files = Object.keys(fileData.grpFiles(user, group)).filter(f => f != dotMembers)
+        if(member == null) files.push(dotMembers)   //.members deletion caused this update
 
         removed.forEach(member => {
           files.forEach(file => {
-            brume.eventQueue.push({action: 'unlink', file: file, dest: member})
+            eventQueue.push({action: 'unlink', file: file, dest: member})
           })
         })
       }
@@ -153,7 +152,7 @@ function GroupInfo(baseDir, username) {
     groupData[user][group] = { members: newMembers}
     try{
       writeFileSync(join(brume.baseDir, user, group, '.members'), JSON.stringify(newMembers))
-      brume.groupInfo.networkEvents.add({action: 'change', file: join(user, group, '.members')})
+      this.networkEvents.add({action: 'change', file: join(user, group, '.members')})
     } catch(e) {
       console.log('updateMembers:    error', e.message)
     }
@@ -188,7 +187,7 @@ function GroupInfo(baseDir, username) {
         members = JSON.parse(readFileSync(p+'/'+group+'/.members'))
       } catch(e) {
         if(e.message && e.message.includes('Unexpected token')) {
-          // messed up .members; can't tell what to do
+          console.log('groupInfo:    ', e.message, 'in', user+'/'+group+'/.members' )
           return
         }
       }
@@ -224,16 +223,14 @@ class FileData extends Map {
   }
 
   setSync = (f, v) => {
-    if(f.split('/')[0] != brume.thisUser) {
-      // only set sync for group members
-      this.set(f, {...this.get(f), ...{synced: v}})
-    }
+    this.set(f, {...this.get(f), ...{synced: v}})
   }
 }
 
 function Brume() {
-  brume = this
+  var brume = this
   this.init = function (baseDir, username) {
+    this.thisUser = username
     this.baseDir = baseDir
     this.fileData = new FileData()
     const watcher = require('chokidar').watch('.', {cwd: baseDir, ignored: /-CONFLICT-/})
@@ -250,7 +247,7 @@ function Brume() {
     .on('add', initAddHandler)
     .on('ready', () => {
       console.log('sender:    watcher ready')
-      this.groupInfo = new GroupInfo(baseDir, username)
+      this.groupInfo = new GroupInfo(brume)
       watcher
         .removeListener('add', initAddHandler)
         .on('all', async (event, path) => {
@@ -266,7 +263,7 @@ function Brume() {
           if(path.match(/(^|[\/])\./)) {
             if(p.length == 3 && p[2] == '.members') {
               if(p[0] == brume.thisUser) {
-                brume.groupInfo.updateMembers(p[0], p[1], cmd.action)
+                /*brume*/this.groupInfo.updateMembers(p[0], p[1], cmd.action)
               }
             } else {
               return
@@ -287,7 +284,7 @@ function Brume() {
                 brume.fileData.set(cmd.file, {mod: cmd.mod})
                 brume.fileData.setSync(cmd.file, false)
                 brume.eventQueue.push(cmd)
-								debug('watcher:    eventEnqueue', cmd)
+								debug('watcher:    eventEnqueue', JSON.stringify(cmd))
               } else {
                 try {
                   utimesEvents.add({action: 'change', file: path})
@@ -330,4 +327,7 @@ function Brume() {
   }
 }
 
-module.exports = new Brume()
+module.exports = {
+  brume: new Brume()
+  ,debug: debug
+}
