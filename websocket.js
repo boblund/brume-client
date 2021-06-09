@@ -50,6 +50,7 @@ function createWebsocket(url, name, token) {
 
     ws.on('close', m => {
       console.log('server close:', m)
+      ws.emit('serverclose', m)
     })
 
     ws.onmessage = msg => {
