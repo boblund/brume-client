@@ -39,7 +39,12 @@ function GroupInfo(brume) {
   this.networkEvents = new NetworkEvents;
 
   this.getMembers = (user, group) => {
-    return groupData[user][group]['members']
+    if(groupData[user] && groupData[user][group]) {
+      return groupData[user][group]['members']
+    } else {
+      console.log(`getMembers:    error groupData[${user}][${group}] undefined`)
+      return []
+    }
   };
 
   this.memberOf = (src, owner, group) => {
@@ -230,10 +235,22 @@ class FileData extends Map {
 function Brume() {
   var brume = this
   this.init = function (baseDir, username) {
+    /*
+    delete this.fileData
+    delete this.groupData
+    */
+
     this.thisUser = username
     this.baseDir = baseDir
+    if(this.fileData != undefined) {
+      delete this.fileData
+      console.log('brumeInit:    fileData deleted')
+    }
     this.fileData = new FileData()
-    const watcher = require('chokidar').watch('.', {cwd: baseDir, ignored: /-CONFLICT-/})
+    if(this.watcher != undefined) {
+      this.watcher.close().then(() => console.log('brumeInit:    watcher closed'));
+    }
+    this.watcher = require('chokidar').watch('.', {cwd: baseDir, ignored: /-CONFLICT-/})
     function initAddHandler(path, stats) {
       let p = path.split('/')
       if((p.length == 3 && p[2] == '.members') || !path.match(/(^|[\/])\./)) {
@@ -243,12 +260,16 @@ function Brume() {
       }
     }
     
-    watcher
+    this.watcher
     .on('add', initAddHandler)
     .on('ready', () => {
       console.log('sender:    watcher ready')
+      if(this.groupInfo != undefined) {
+        delete this.groupInfo
+        console.log('brumeInit:    groupInfo deleted')
+      }
       this.groupInfo = new GroupInfo(brume)
-      watcher
+      this.watcher
         .removeListener('add', initAddHandler)
         .on('all', async (event, path) => {
           if(utimesEvents.remove({action: event, file: path}) > -1) {

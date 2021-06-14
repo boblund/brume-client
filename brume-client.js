@@ -19,19 +19,22 @@ const {brume, debug} = require('./global.js')
 
 var username, token, url, addr, port;
 
-try {
-  ;({token, url} = JSON.parse(fs.readFileSync(configFile, 'utf-8')))
-  ;([addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null])
-  port = port ? ':' + port : ''
-  ;({username} = jwt.decode(token))//.username
-  brume.init(baseDir, username)
-  if(!baseDir || !token || !url) throw('baseDir, token or url not set')
-} catch(e) {
-  console.error(`brume-client:    Brume config error ${configFile} ${e}`)
-  process.exit(1)
+function brumeInit() {
+  try {
+    ;({token, url} = JSON.parse(fs.readFileSync(configFile, 'utf-8')))
+    ;([addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null])
+    port = port ? ':' + port : ''
+    ;({username} = jwt.decode(token))//.username
+    brume.init(baseDir, username)
+    if(!baseDir || !token || !url) throw('baseDir, token or url not set')
+  } catch(e) {
+    console.error(`brume-client:    Brume config error ${configFile} ${e}`)
+    process.exit(1)
+  }
+  brumeStart()
 }
 
-async function main() {
+async function brumeStart() {
   try {
     console.log('Starting brume-client username=', username)
     url = addr
@@ -44,7 +47,7 @@ async function main() {
     ws.on('serverclose', (m)=> {
       let minutes= 1
       console.error("server close:", m, ". Retry in", minutes, 'minutes')
-      setTimeout(main, minutes*60*1000)
+      setTimeout(brumeStart, minutes*60*1000)
     })
 
     //brume.init(baseDir, username)
@@ -56,7 +59,7 @@ async function main() {
   } catch(e) {
     let minutes= 10
     console.error("createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')
-    setTimeout(main, minutes*60*1000)
+    setTimeout(brumeInit, minutes*60*1000)
   }
   // make main start at above try
   // on server close
@@ -64,5 +67,4 @@ async function main() {
   //  restart main
 }
 
-main()
-
+brumeInit()

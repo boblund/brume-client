@@ -207,7 +207,7 @@ function receiver({PeerConnection, baseDir}) {
                 let {mod} = fileData.get(cmd.file)
                 if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
                   // change conflict
-                  ofile = dirname(cmd.file)+fileParts[0]
+                  oFile = dirname(cmd.file)+fileParts[0]
                           +'-CONFLICT-'+ (mod != cmd.pmod ? '-version-' : '-older-')+src
                           +(fileParts.length==2 ?'.'+fileParts[0] : '')
                 }
