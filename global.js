@@ -277,6 +277,14 @@ function Brume() {
           }
 
           console.log('watcher:   ', event, path)
+
+          // restart brume if server closed due to inactivity
+          if(brume.wsTimer != undefined) {
+            clearTimeout(brume.wsTimer)
+            delete brume.wsTimer
+            brume.brumeStart()
+          }
+
           let p = path.split('/')
               ,cmd = {action: event, file: path}
 

@@ -54,8 +54,8 @@ If ```/usr/local/bin/brume-client``` does not exist do the following four steps.
 
 ```
 sudo mkdir -p /usr/local/lib/brume
-cp -r *.js node_modules /usr/local/lib/brume/
-sudo ln -s /usr/local/lib/brume/brume-client.js /usr/local/bin/brume-client
+cp -r *.js node_modules /usr/local/lib/brume-client/
+sudo ln -s /usr/local/lib/brume-client/brume-client.js /usr/local/bin/brume-client
 sudo chmod 755 /usr/local/bin/brume-client
 ```
 

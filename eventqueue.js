@@ -55,6 +55,7 @@ class EventQueue {
   }
   
   push(i) {
+    console.log('enqueue:    push ', JSON.stringify(i))
     this.#a.push(i);
     this.#e.emit('data')
     return i

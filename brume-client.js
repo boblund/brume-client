@@ -34,7 +34,13 @@ function brumeInit() {
   brumeStart()
 }
 
+brume.brumeStart = brumeStart
+
 async function brumeStart() {
+  if(brume.wsTimer != undefined) {
+    delete brume.wsTimer
+  }
+
   try {
     console.log('Starting brume-client username=', username)
     url = addr
@@ -43,28 +49,27 @@ async function brumeStart() {
         : await new Promise(res=>{resolve4(addr).then(res).catch(()=>{res(addr)})})
       ) + port
     : url
-    var ws = await createWebsocket(url, username, token)
-    ws.on('serverclose', (m)=> {
+    brume.ws = await createWebsocket(url, username, token)
+    brume.ws.on('serverclose', (m)=> {
       let minutes= 1
-      console.error("server close:", m, ". Retry in", minutes, 'minutes')
-      setTimeout(brumeStart, minutes*60*1000)
+      console.error("server close:", m, ". Restart in", minutes, 'minutes')
+      delete brume.ws
+      brume.wsTimer = setTimeout(brumeStart, minutes*60*1000)
     })
 
     //brume.init(baseDir, username)
     console.log('Connected to brume-server @', url)
-    var PeerConnection = require('./makePeerConnection.js')(ws, username)
+    var PeerConnection = require('./makePeerConnection.js')(brume.ws, username)
     sender({PeerConnection: PeerConnection, baseDir: baseDir})
     receiver({PeerConnection, baseDir})
     brume.eventQueue.processQ() //start()
   } catch(e) {
-    let minutes= 10
+    let minutes= 60
     console.error("createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')
     setTimeout(brumeInit, minutes*60*1000)
+    brume.watcher.close().then(() => console.log('brume-client:    watcher closed'));
+    delete brume.watcher
   }
-  // make main start at above try
-  // on server close
-  //  delete brume.eventQueue, PeerConnection
-  //  restart main
 }
 
 brumeInit()
