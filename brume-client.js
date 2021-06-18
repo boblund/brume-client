@@ -3,6 +3,7 @@
 
 const {brume, debug} = require('./global.js')
       , fs = require('fs')
+      , {round, random} = Math
       , jwt = require('jsonwebtoken')
       , {resolve4} = require('mdns-resolver')
       , sender = require("./sender.js")
@@ -37,6 +38,7 @@ function brumeInit() {
 brume.brumeStart = brumeStart
 
 async function brumeStart() {
+  console.log('brumeStart')
   if(brume.wsTimer != undefined) {
     delete brume.wsTimer
   }
@@ -51,10 +53,10 @@ async function brumeStart() {
     : url
     brume.ws = await createWebsocket(url, username, token)
     brume.ws.on('serverclose', (m)=> {
-      let minutes= 1
-      console.error("server close:", m, ". Restart in", minutes, 'minutes')
+      let delay= round(random()*10) + 5  // close restart delay in minutes
+      console.error("server close:", m, ". Restart in", delay, 'minutes')
       delete brume.ws
-      brume.wsTimer = setTimeout(brumeStart, minutes*60*1000)
+      brume.wsTimer = setTimeout(brumeStart, delay*60*1000)
     })
 
     //brume.init(baseDir, username)
@@ -62,6 +64,7 @@ async function brumeStart() {
     var PeerConnection = require('./makePeerConnection.js')(brume.ws, username)
     sender({PeerConnection: PeerConnection, baseDir: baseDir})
     receiver({PeerConnection, baseDir})
+    brume.groupInfo.sync()
     brume.eventQueue.processQ() //start()
   } catch(e) {
     let minutes= 60

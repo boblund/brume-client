@@ -38,6 +38,14 @@ function GroupInfo(brume) {
 
   this.networkEvents = new NetworkEvents;
 
+  this.getGroups = ()=>{
+    let r={}
+    for(const [k, v] of Object.entries(groupData)){
+      r[k] =  Object.keys(v)
+    }
+    return r
+  };
+
   this.getMembers = (user, group) => {
     if(groupData[user] && groupData[user][group]) {
       return groupData[user][group]['members']
@@ -70,8 +78,52 @@ function GroupInfo(brume) {
     return status ? (memberStatus[member] = status) : memberStatus[member]
   }
 
-  this.sendSync = (owner, group) => {
-    // process any .retryOnSync commands for owner/cmd.group
+  this.sync = (user, group) =>{
+    console.log('groupInfo.sync')
+    let groups = {}
+    if(user && group) {
+      groups[user] = {}
+      groups[user][group] = groupData[user][group]
+    } else if(user) {
+      groups[user] = groupData[user]
+    } else {
+      groups = groupData
+    }
+
+    for(const [u,gO] of Object.entries(groups)){
+      for(const [g,mO] of Object.entries(gO)){
+        if(u == brume.thisUser) {
+          mO.members.forEach(member=> {
+            this.memberStatus(member, 'active')
+            eventQueue.push({action: 'syncReq', dest: member, group: g})
+          }) 
+        } else {
+          //this.sendSync(u, g)
+          this.memberStatus(u, 'active')
+          // process any .retryOnSync commands for owner/group
+          try {
+            let retryFile = join(brume.baseDir, u, g,'.retryOnSync')
+            for(let cmd of readFileSync(retryFile).toString().split('\n').filter(e => e != '')) {
+              eventQueue.push(JSON.parse(cmd))
+            }
+            unlinkSync(retryFile)
+          } catch (e) {
+            if(!e.code == 'ENOENT') console.log('receiver:    .retryOnSync error ', e.message)
+          }
+      
+          let cmd = {
+            action: 'sync', dest: u, group: g
+            ,files: fileData.grpFiles(u, g)
+          }
+          eventQueue.push(cmd)
+        }
+      }
+    }
+  }
+
+  /*this.sendSync = (owner, group) => {
+    this.memberStatus(owner, 'active')
+    // process any .retryOnSync commands for owner/group
     try {
       let retryFile = join(brume.baseDir, owner, group,'.retryOnSync')
       for(let cmd of readFileSync(retryFile).toString().split('\n').filter(e => e != '')) {
@@ -92,7 +144,7 @@ function GroupInfo(brume) {
   this.sendSyncReq = (member, group) => {
     this.memberStatus(member, 'active')
     eventQueue.push({action: 'syncReq', dest: member, group: group})
-  }
+  }*/
 
   this.updateMembers = (user, group, action, member=null) => {
     if(user != brume.thisUser) {
@@ -137,7 +189,8 @@ function GroupInfo(brume) {
     if(user == thisUser) {
       added.filter(m => m != thisUser).forEach(member => {
         this.memberStatus(member, 'active');
-        this.sendSyncReq(member, group)
+        //this.sendSyncReq(member, group)
+        this.sync(member, group)
       })
     
       if(removed.length > 0) {
@@ -198,7 +251,7 @@ function GroupInfo(brume) {
       }
 
       groupData[user][group] = {members: members}
-      if(user == brume.thisUser) {
+      /*if(user == brume.thisUser) {
         // Request sync from each new member
         if(members) {
           members.forEach(member => {
@@ -208,9 +261,10 @@ function GroupInfo(brume) {
       } else {
         // Send sync to each owner
         this.sendSync(user, group)
-      }
+      }*/  
     }
   }
+  //this.sync()
 }
 
 class FileData extends Map {
@@ -235,6 +289,7 @@ class FileData extends Map {
 function Brume() {
   var brume = this
   this.init = function (baseDir, username) {
+    console.log('brume.init')
     /*
     delete this.fileData
     delete this.groupData
@@ -263,7 +318,7 @@ function Brume() {
     this.watcher
     .on('add', initAddHandler)
     .on('ready', () => {
-      console.log('sender:    watcher ready')
+      console.log('watcher ready')
       if(this.groupInfo != undefined) {
         delete this.groupInfo
         console.log('brumeInit:    groupInfo deleted')
@@ -340,7 +395,8 @@ function Brume() {
               if(p.length == 2) {
                 brume.groupInfo.addGroup(p[0], p[1])
                 if(p[0] != brume.thisUser) {
-                  brume.groupInfo.sendSync(p[0], p[1])
+                  //brume.groupInfo.sendSync(p[0], p[1])
+                  brume.groupInfo.sync(p[0], p[1])
                 }
               } 
               break
