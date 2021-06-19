@@ -53,7 +53,7 @@ async function brumeStart() {
     : url
     brume.ws = await createWebsocket(url, username, token)
     brume.ws.on('serverclose', (m)=> {
-      let delay= round(random()*10) + 5  // close restart delay in minutes
+      let delay= round(random()*10) + 10  // close restart delay in minutes
       console.error("server close:", m, ". Restart in", delay, 'minutes')
       delete brume.ws
       brume.wsTimer = setTimeout(brumeStart, delay*60*1000)

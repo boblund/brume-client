@@ -127,7 +127,7 @@ function receiver({PeerConnection, baseDir}) {
               if(groupInfo.memberStatus(src) == 'notconnected') {
                 groupInfo.memberStatus(src, 'active')
               }
-              groupInfo.sendSync(/*cmd.owner*/src, cmd.group)
+              groupInfo.sync(/*cmd.owner*/src, cmd.group)
               peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd.action}));
               peer.destroy()
               resolve()
