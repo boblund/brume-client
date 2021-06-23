@@ -1,5 +1,6 @@
 const fs = require('fs')
-      ,{brume, debug} = require('./global.js')
+      ,{brume} = require('./global.js')
+      ,{log, DEBUG, INFO, WARN, ERROR} = require('./logger.js')
 var cmdProcessor
 
 function errorHandler(err) {
@@ -7,38 +8,53 @@ function errorHandler(err) {
 
     case 'ENODEST':
       brume.groupInfo.memberStatus(err.peerName, 'notconnected')
-      console.error(`sender:    ENODEST ${err.peerName} not connected\n`)
+      log(WARN, `user ${err.peerName} not connected`)
       if(['add', 'change', 'unlink'].includes(err.cmd.action) && err.cmd.file.split('/')[0] == err.peerName) {
         // File cmd sent to group owner failed because owner not connected.
         // Queue for retry when owner comes back and abort cmd for any remaining group members
         try {
           fs.writeFileSync(brume.baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
         } catch (e) {
-          console.log(`sender:    error writing .retryOnSync ${e.message}`)
+          console.log(`eventQueue: error writing .retryOnSync ${e.message}`)
         }
-        return false
       }
-      break
+      return 'BREAK'
 
     case 'EBADDEST':
       brume.groupInfo.memberStatus(err.peerName, 'notconnected')
-      console.error(`sender:    EBADDEST ${err.peerName} not Brume user\n`)
+      log(WARN, `eventQueue: ${err.peerName} not Brume user\n`)
       break
       
     case 'ENOTMEMBER':
-      brume.groupInfo.memberStatus(err.peerName, 'notconnected')
-      console.error('sender:    ENOTMEMBER '
-        + (err.cmd.action=='syncReq'?err.cmd.dest:'')
-        + ' not member of ' + (err.cmd.action=='syncReq' ? brume.thisUser : err.cmd.dest) + '/' + err.cmd.group)
+      //brume.groupInfo.memberStatus(err.peerName, 'notconnected')
+      //syncReq err.peerName || err.cmd.dest, brume.thisUser, err.cmd.group
+      //change err.peerName, err,cmd.file.split('/')[0]/[1]
+      let user, group
+
+      switch(err.cmd.action) {
+        case 'syncReq':
+          user = err.cmd.dest
+          group = brume.thisUser + '/' + err.cmd.group
+          break
+
+        case 'sync':
+          user = brume.thisUser
+          group = err.cmd.dest + '/' + err.cmd.group
+          break
+
+        default:
+          user = brume.thisUser
+          group = err.cmd.file.match(/(^.*?\/.*?)\/.*/)[1]
+      }
+
+      log(WARN, 'eventQueue: '+ user + ' not member of ' + group)
       break
 
     default:
-      console.error('sender:    unknown error:', err);
+      log(ERROR, 'eventQueue: unknown error:', err);
   }
-  return true
+  return '';
 }
-
-
 
 class EventQueue { 
   #a=[];
@@ -55,7 +71,7 @@ class EventQueue {
   }
   
   push(i) {
-    console.log('enqueue:    push ', JSON.stringify(i))
+    log(DEBUG, 'enqueue', JSON.stringify(i))
     this.#a.push(i);
     this.#e.emit('data')
     return i
@@ -68,44 +84,47 @@ class EventQueue {
   async processQ(){
     while(this.length() > 0) {
       let user = null, group = null, qEntry = this.shift()
+      log.debug('processQ qEntry', JSON.stringify(qEntry))
        
       if(!(group = qEntry.group)) {
         if(qEntry.file) {
           user = qEntry.file.split('/')[0]
           group = qEntry.file.split('/')[1]
         } else {
-          console.log(`sender:    can't process without group`)
-          return
+          log(ERROR, `eventQueue: can't process without group`)
+          continue
         }
       }
       
       let dests = qEntry.dest
         ? [qEntry.dest]
         : [user].concat(brume.groupInfo.getMembers(user, group)).filter(m => m != brume.thisUser)
-    
+      
+      log.debug('processQ dests', dests)
       if(dests.length == 0) {
-        console.log(`sender:    WARNING no dests for group ${group}`)
-        return
+        log(WARN, `eventQueue: no members in group ${group}`)
+        continue
       }
       
       for(let dest of dests.filter(m => brume.groupInfo.memberStatus(m) == 'active')) {
         let result
         try {
+          log.info('cmdProcessor send', dest, JSON.stringify(qEntry))
           result = await cmdProcessor(dest, qEntry)
-          // Move to errorHandler?
-          if(result.type == 'CONFLICT') {
-            console.log('eventQueueProcessor:   result.type == CONFLICT not handled')
-          }
+          log.info('cmdProcessor result', JSON.stringify(result))
         } catch (e) {
           e.cmd = e.cmd ? e.cmd : qEntry
-          if(!errorHandler(e)) {
-            // abort for doing commands for this group
-            return
+          log.error('cmdProcessor error', JSON.stringify(e))
+          if(errorHandler(e) == 'BREAK'){
+            //group owner of file event not connected. stop sending to any members
+            break
           }
         }
       }
     }
-    this.#e.once('data', () => {this.processQ()})
+    log.debug('processQ calling this.#e.once')
+    this.#e.once('data', () => {
+      this.processQ()})
   }
 
   length() {

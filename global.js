@@ -2,11 +2,8 @@
 const {readdirSync, readFileSync, rmdirSync, statSync, unlinkSync, writeFileSync, promises: {utimes}} = require('fs')
       ,{join} = require('path')
       ,utimesEvents = new NetworkEvents()
+      ,{log, DEBUG, INFO, WARN, ERROR} = require('./logger.js')
 ;
-
-function debug(...args){
-	console.log(...args)
-}
 
 function NetworkEvents() {
   var networkEvents = []
@@ -50,17 +47,19 @@ function GroupInfo(brume) {
     if(groupData[user] && groupData[user][group]) {
       return groupData[user][group]['members']
     } else {
-      console.log(`getMembers:    error groupData[${user}][${group}] undefined`)
+      log.error(`getMembers groupData[${user}][${group}] undefined`)
       return []
     }
   };
 
   this.memberOf = (src, owner, group) => {
-    if(src == owner) {
+    //if(src == owner) {
       return groupData[owner] && groupData[owner][group]
-    } else {
-      return groupData[owner][group]['members'].includes(src)
-    }
+    //} else {
+    //  return groupData[owner] && groupData[owner][group]
+    //    ? groupData[owner][group]['members'].includes(src)
+    //    : false
+    //}
   }
 
   this.rmGroup = (member, group) => {
@@ -78,8 +77,7 @@ function GroupInfo(brume) {
     return status ? (memberStatus[member] = status) : memberStatus[member]
   }
 
-  this.sync = (user, group) =>{
-    console.log('groupInfo.sync')
+  this.sync = (user, group, member) =>{
     let groups = {}
     if(user && group) {
       groups[user] = {}
@@ -93,14 +91,13 @@ function GroupInfo(brume) {
     for(const [u,gO] of Object.entries(groups)){
       for(const [g,mO] of Object.entries(gO)){
         if(u == brume.thisUser) {
-          mO.members.forEach(member=> {
+          let membersA = member ? [member] : mO.members
+          membersA.forEach(member=> {
             this.memberStatus(member, 'active')
             eventQueue.push({action: 'syncReq', dest: member, group: g})
           }) 
         } else {
-          //this.sendSync(u, g)
           this.memberStatus(u, 'active')
-          // process any .retryOnSync commands for owner/group
           try {
             let retryFile = join(brume.baseDir, u, g,'.retryOnSync')
             for(let cmd of readFileSync(retryFile).toString().split('\n').filter(e => e != '')) {
@@ -108,7 +105,7 @@ function GroupInfo(brume) {
             }
             unlinkSync(retryFile)
           } catch (e) {
-            if(!e.code == 'ENOENT') console.log('receiver:    .retryOnSync error ', e.message)
+            if(!e.code == 'ENOENT') log.error('.retryOnSync error ', e.message)
           }
       
           let cmd = {
@@ -121,34 +118,9 @@ function GroupInfo(brume) {
     }
   }
 
-  /*this.sendSync = (owner, group) => {
-    this.memberStatus(owner, 'active')
-    // process any .retryOnSync commands for owner/group
-    try {
-      let retryFile = join(brume.baseDir, owner, group,'.retryOnSync')
-      for(let cmd of readFileSync(retryFile).toString().split('\n').filter(e => e != '')) {
-        eventQueue.push(JSON.parse(cmd))
-      }
-      unlinkSync(retryFile)
-    } catch (e) {
-      if(!e.code == 'ENOENT') console.log('receiver:    .retryOnSync error ', e.message)
-    }
-
-    let cmd = {
-      action: 'sync', dest: owner, group: group
-      ,files: fileData.grpFiles(owner, group)
-    }
-    eventQueue.push(cmd)  
-  }
-
-  this.sendSyncReq = (member, group) => {
-    this.memberStatus(member, 'active')
-    eventQueue.push({action: 'syncReq', dest: member, group: group})
-  }*/
-
   this.updateMembers = (user, group, action, member=null) => {
     if(user != brume.thisUser) {
-      console.log('updateMembers:    error', brume.thisUser,'cannot update', user+'/'+group+'/.members')
+      log.error('updateMembers error', brume.thisUser,'cannot update', user+'/'+group+'/.members')
       return
     }
 
@@ -162,7 +134,7 @@ function GroupInfo(brume) {
         newMembers = JSON.parse(readFileSync(p+'/'+group+'/.members'))
       } catch(e) {
         if(e.message && e.message.includes('Unexpected token')) {
-          console.log('updateMembers:    ', e.message)
+          log.error('updateMembers .members JSON.parse error', e.message)
           // messed up .members; can't tell what to do
           return
         }
@@ -182,15 +154,15 @@ function GroupInfo(brume) {
         break;
 
       default:
-        console.log(`brume-client:    updateMembers unknown action ${action}`)
+        log.error(`updateMembers unknown action ${action}`)
         return
     }
 
+    groupData[user][group] = { members: newMembers}
     if(user == thisUser) {
       added.filter(m => m != thisUser).forEach(member => {
-        this.memberStatus(member, 'active');
-        //this.sendSyncReq(member, group)
-        this.sync(member, group)
+        //this.memberStatus(member, 'active');
+        this.sync(user, group, member)
       })
     
       if(removed.length > 0) {
@@ -205,14 +177,16 @@ function GroupInfo(brume) {
           })
         })
       }
+
     }
 
-    groupData[user][group] = { members: newMembers}
-    try{
-      writeFileSync(join(brume.baseDir, user, group, '.members'), JSON.stringify(newMembers))
-      this.networkEvents.add({action: 'change', file: join(user, group, '.members')})
-    } catch(e) {
-      console.log('updateMembers:    error', e.message)
+    if(action == 'unlink') {
+      try{
+        writeFileSync(join(brume.baseDir, user, group, '.members'), JSON.stringify(newMembers))
+        this.networkEvents.add({action: 'change', file: join(user, group, '.members')})
+      } catch(e) {
+        log.error('updateMembers .members write error', e.message)
+      }                     
     }
   }
 
@@ -224,7 +198,7 @@ function GroupInfo(brume) {
   try {
     users = readdirSync(baseDir).filter(f => statSync(join(baseDir, f)).isDirectory())
   } catch (e) {
-    console.log(`brume-client:    error reading ${baseDir}`)
+    log.error(`GroupInfo error reading ${baseDir}`)
     return
   }
 
@@ -235,7 +209,7 @@ function GroupInfo(brume) {
     try {
       groups = readdirSync(p).filter(f => statSync(join(p, f)).isDirectory())
     } catch (e) {
-      console.log(`brume-client:    error reading ${p}`)
+      log.error(`GroupInfo error reading ${p}`)
       continue
     }
 
@@ -245,26 +219,15 @@ function GroupInfo(brume) {
         members = JSON.parse(readFileSync(p+'/'+group+'/.members'))
       } catch(e) {
         if(e.message && e.message.includes('Unexpected token')) {
-          console.log('groupInfo:    ', e.message, 'in', user+'/'+group+'/.members' )
+          log.eror('GroupInfo JSON.parse error', e.message, 'in', user+'/'+group+'/.members' )
           return
         }
       }
 
       groupData[user][group] = {members: members}
-      /*if(user == brume.thisUser) {
-        // Request sync from each new member
-        if(members) {
-          members.forEach(member => {
-            this.sendSyncReq(member, group)
-          })
-        }
-      } else {
-        // Send sync to each owner
-        this.sendSync(user, group)
-      }*/  
     }
   }
-  //this.sync()
+  this.sync()
 }
 
 class FileData extends Map {
@@ -289,21 +252,15 @@ class FileData extends Map {
 function Brume() {
   var brume = this
   this.init = function (baseDir, username) {
-    console.log('brume.init')
-    /*
-    delete this.fileData
-    delete this.groupData
-    */
-
     this.thisUser = username
     this.baseDir = baseDir
     if(this.fileData != undefined) {
       delete this.fileData
-      console.log('brumeInit:    fileData deleted')
+      log(DEBUG, 'brume.init fileData deleted')
     }
     this.fileData = new FileData()
     if(this.watcher != undefined) {
-      this.watcher.close().then(() => console.log('brumeInit:    watcher closed'));
+      this.watcher.close().then(() => log(DEBUG, 'brumeInit watcher closed'));
     }
     this.watcher = require('chokidar').watch('.', {cwd: baseDir, ignored: /-CONFLICT-/})
     function initAddHandler(path, stats) {
@@ -311,17 +268,15 @@ function Brume() {
       if((p.length == 3 && p[2] == '.members') || !path.match(/(^|[\/])\./)) {
         brume.fileData.set(path, {mod: stats.mtime.toISOString()})
         brume.fileData.setSync(path, false)
-        console.log(`initadd ${path} ${JSON.stringify(brume.fileData.get(path))}`)
+        log(DEBUG, `fileData ${path} ${JSON.stringify(brume.fileData.get(path))}`)
       }
     }
     
     this.watcher
     .on('add', initAddHandler)
     .on('ready', () => {
-      console.log('watcher ready')
       if(this.groupInfo != undefined) {
         delete this.groupInfo
-        console.log('brumeInit:    groupInfo deleted')
       }
       this.groupInfo = new GroupInfo(brume)
       this.watcher
@@ -331,14 +286,14 @@ function Brume() {
             return
           }
 
-          console.log('watcher:   ', event, path)
+          log.info('file event', event, path)
 
           // restart brume if server closed due to inactivity
-          if(brume.wsTimer != undefined) {
+          /*if(brume.wsTimer != undefined) {
             clearTimeout(brume.wsTimer)
             delete brume.wsTimer
             brume.brumeStart()
-          }
+          }*/
 
           let p = path.split('/')
               ,cmd = {action: event, file: path}
@@ -346,8 +301,12 @@ function Brume() {
           // ignore all .dotfiles except user/group/.members
           if(path.match(/(^|[\/])\./)) {
             if(p.length == 3 && p[2] == '.members') {
+              /*if(brume.groupInfo.networkEvents.remove(cmd) > -1) {
+                return
+              }*/
               if(p[0] == brume.thisUser) {
                 /*brume*/this.groupInfo.updateMembers(p[0], p[1], cmd.action)
+                //return
               }
             } else {
               return
@@ -368,14 +327,13 @@ function Brume() {
                 brume.fileData.set(cmd.file, {mod: cmd.mod})
                 brume.fileData.setSync(cmd.file, false)
                 brume.eventQueue.push(cmd)
-								debug('watcher:    eventEnqueue', JSON.stringify(cmd))
               } else {
                 try {
                   utimesEvents.add({action: 'change', file: path})
                   let date = new Date(brume.fileData.get(path).mod)
                   await utimes(baseDir+path, date, date)
                 } catch (e) {
-                  console.log(`watcher:    error setting ${path} times ${e.message}`)
+                  log.error(`watcher utimes error ${path} ${e.message}`)
                 }
               }
   
@@ -414,5 +372,4 @@ function Brume() {
 
 module.exports = {
   brume: new Brume()
-  ,debug: debug
 }

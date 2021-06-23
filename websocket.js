@@ -21,9 +21,7 @@ function createWebsocket(url, name, token) {
     ws.sendMsg = sendMsg;
 
     ws.onopen = () => {
-      console.log('Connected to the signaling server');
       resolve(ws)
-//      login();
     }
 
     ws.on('error', err => {
@@ -49,7 +47,6 @@ function createWebsocket(url, name, token) {
     })
 
     ws.on('close', m => {
-      console.log('server close:', m)
       ws.emit('serverclose', m)
     })
 

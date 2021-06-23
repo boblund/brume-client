@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 "use strict"
 
-const {brume, debug} = require('./global.js')
+const {brume} = require('./global.js')
+      , {log, DEBUG, INFO, WARN, ERROR} = require('./logger.js')
       , fs = require('fs')
       , {round, random} = Math
       , jwt = require('jsonwebtoken')
@@ -19,6 +20,7 @@ const {brume, debug} = require('./global.js')
 
 
 var username, token, url, addr, port;
+//log.setOptions({level: DEBUG})
 
 function brumeInit() {
   try {
@@ -29,7 +31,7 @@ function brumeInit() {
     brume.init(baseDir, username)
     if(!baseDir || !token || !url) throw('baseDir, token or url not set')
   } catch(e) {
-    console.error(`brume-client:    Brume config error ${configFile} ${e}`)
+    LOG(ERROR, `brume-client:    brume config error ${configFile} ${e}`)
     process.exit(1)
   }
   brumeStart()
@@ -38,13 +40,12 @@ function brumeInit() {
 brume.brumeStart = brumeStart
 
 async function brumeStart() {
-  console.log('brumeStart')
-  if(brume.wsTimer != undefined) {
+  /*if(brume.wsTimer != undefined) {
     delete brume.wsTimer
-  }
+  }*/
 
   try {
-    console.log('Starting brume-client username=', username)
+    log(INFO, 'starting brume-client', username)
     url = addr
     ? 'ws://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
         ? addr.match(/^\d+\.\d+\.\d+\.\d+/)[0]
@@ -52,25 +53,29 @@ async function brumeStart() {
       ) + port
     : url
     brume.ws = await createWebsocket(url, username, token)
-    brume.ws.on('serverclose', (m)=> {
-      let delay= round(random()*10) + 10  // close restart delay in minutes
-      console.error("server close:", m, ". Restart in", delay, 'minutes')
-      delete brume.ws
-      brume.wsTimer = setTimeout(brumeStart, delay*60*1000)
+    log.info('connected to ws server ' + url)
+    const pingInterval = setInterval(function ping() { brume.ws.ping(()=>{}) }, 9.8 * 60 * 1000);
+
+    brume.ws.on('pong', ()=>{
+     log(DEBUG, 'ws server: pong')
     })
 
-    //brume.init(baseDir, username)
-    console.log('Connected to brume-server @', url)
+    brume.ws.on('serverclose', (m)=> {
+      log(INFO, 'ws server close')
+      clearInterval(pingInterval)
+      delete brume.ws
+      brumeStart()
+    })
+
     var PeerConnection = require('./makePeerConnection.js')(brume.ws, username)
     sender({PeerConnection: PeerConnection, baseDir: baseDir})
     receiver({PeerConnection, baseDir})
-    brume.groupInfo.sync()
     brume.eventQueue.processQ() //start()
   } catch(e) {
     let minutes= 60
-    console.error("createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')
+    log(WARN, "createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')
     setTimeout(brumeInit, minutes*60*1000)
-    brume.watcher.close().then(() => console.log('brume-client:    watcher closed'));
+    brume.watcher.close().then(() => log(DEBUG, 'brume-client:    watcher closed'));
     delete brume.watcher
   }
 }

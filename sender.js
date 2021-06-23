@@ -1,5 +1,6 @@
 const {brume, debug} = require('./global.js')
       ,{EventQueue} = require('./eventqueue.js')
+      ,{log, DEBUG, INFO, WARN, ERROR} = require('./logger.js')
 ;
 
 function sender({PeerConnection, baseDir}) {
@@ -9,10 +10,8 @@ function sender({PeerConnection, baseDir}) {
       peer = null;
       try {
         peer = await peerConnection.open(dest)
-        console.log(`doCommand:    ${dest} ${JSON.stringify(cmd)}`) //${peer.channelName} 
 
         peer.on('data', (data) => {
-          //console.log(`sender:    ${peer.channelName} on data` )
           result = JSON.parse(data.toString())
           if(result.type == 'SUCCESS') {
             if(cmd.action == 'sync') {
@@ -33,16 +32,15 @@ function sender({PeerConnection, baseDir}) {
         })
 
         peer.on('close', () => {
-          //console.log(`sender:    ${peer.channelName} peer close\n`);
+          //log.debug(`sender peer ${dest} close\n`);
         })
 
         peer.on('error', e => {
-          console.log(`sender:    ${peer.channelName} peer error\n`);
+          log.error(`sender peer ${dest} error`);
           peer.destroy()
           reject(e)
         })
 
-        //console.log(`sender:    ${peer.channelName} ${JSON.stringify(cmd)}`)
         switch(cmd.action) {
           case 'unlink':
           case 'send':
@@ -66,7 +64,7 @@ function sender({PeerConnection, baseDir}) {
             break;
 
           default:
-            console.error(`sender:    ${peer.channelName} unknown cmd.action ${cmd.action}`)     
+            log.error(`sender unknown cmd.action ${cmd.action}`)     
         }
         //resolve()    
       } catch (err) {
