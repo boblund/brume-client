@@ -70,7 +70,9 @@ function receiver({PeerConnection, baseDir}) {
               resolve()
               return
             }
-            
+
+            let oFile = null
+
             switch(cmd.action) {
               case 'sync':
                 if(groupInfo.memberStatus(src) == 'notconnected') {
@@ -106,12 +108,7 @@ function receiver({PeerConnection, baseDir}) {
                         ,pmod: fileData.get(file).mod, mod: fileData.get(file).mod
                       })
                     } else if(fileData.get(file).mod < cmd.files[file].mod) {
-                      eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-older', dest: src})
-                      // send older file to source of sync
-                      eventQueue.push({
-                        action: 'add', file: file, dest: src //, sync: true
-                        ,pmod: fileData.get(file).mod, mod: fileData.get(file).mod
-                      })
+                      eventQueue.push({action: 'add', file: file, newFile: file+'-CONFLICT-owner', dest: src})
                     } else {
                       syncedFiles.push(file)
                     }
@@ -128,7 +125,7 @@ function receiver({PeerConnection, baseDir}) {
                 if(groupInfo.memberStatus(src) == 'notconnected') {
                   groupInfo.memberStatus(src, 'active')
                 }
-                groupInfo.sync(/*cmd.owner*/src, cmd.group)
+                groupInfo.sync(src, cmd.group)
                 peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd.action}));
                 peer.destroy()
                 resolve()
@@ -170,8 +167,8 @@ function receiver({PeerConnection, baseDir}) {
                 return
 
                 break
+
               case 'rename':
-                // only accept if from file owner
                 try {
                   if(src != pathParts[0]) throw new Error('rename not owner')
                   await fs.renameSync(baseDir + cmd.file, baseDir + cmd.newFile)
@@ -198,11 +195,10 @@ function receiver({PeerConnection, baseDir}) {
                   return              
                 }
 
-                let oFile = null
-                    ,fileParts =  basename(cmd.file).split('.')
+                let fileParts =  basename(cmd.file).split('.')
                 resp = {type: 'SUCCESS', cmd: cmd}
 
-                if(cmd.action == 'add' && fileData.get(cmd.file)) {
+                if(cmd.action == 'add' && !cmd.newFile && fileData.get(cmd.file)) {
                   oFile = dirname(cmd.file)+'/'+fileParts[0]+'-CONFLICT-exists-'+src+(fileParts.length==2?'.'+fileParts[0]:'')               
                 } else if(cmd.action == 'change') {
                   let {mod} = fileData.get(cmd.file)
@@ -215,8 +211,7 @@ function receiver({PeerConnection, baseDir}) {
                 }
 
                 var outStream;
-                oFile = oFile ? oFile : cmd.file
-
+                oFile = oFile ? oFile : (cmd.newFile ? cmd.newFile : cmd.file)
                 try {
                   if(cmd.action == 'add') {
                     fs.mkdirSync(baseDir + dirname(oFile), {recursive: true})
@@ -258,6 +253,7 @@ function receiver({PeerConnection, baseDir}) {
           } catch(e) {
             log.error('receiver: sender command error', e)
             resp = {type: 'ERROR', error: e}
+            peer.send(JSON.stringify(resp));
             peer.destroy()
             resolve()
           }
