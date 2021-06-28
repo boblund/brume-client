@@ -18,13 +18,14 @@ const {brume} = require('./global.js')
             : process.env.HOME+'/.config/Brume/brume.conf'
 ;
 
-
-var username, token, url, addr, port;
+var username, token, url, addr, port, logLevel;
 //log.setOptions({level: DEBUG})
 
 function brumeInit() {
   try {
-    ;({token, url} = JSON.parse(fs.readFileSync(configFile, 'utf-8')))
+    ;({token, url, logLevel} = JSON.parse(fs.readFileSync(configFile, 'utf-8')))
+    logLevel = process.env.LOG ? process.env.LOG : (logLevel ? logLevel : INFO)
+    log.setOptions({level: logLevel, istty: process.env.ISTTY ? true : null})
     ;([addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null])
     port = port ? ':' + port : ''
     ;({username} = jwt.decode(token))//.username
@@ -40,10 +41,6 @@ function brumeInit() {
 brume.brumeStart = brumeStart
 
 async function brumeStart() {
-  /*if(brume.wsTimer != undefined) {
-    delete brume.wsTimer
-  }*/
-
   try {
     log(INFO, 'starting brume-client', username)
     url = addr
@@ -70,7 +67,7 @@ async function brumeStart() {
     var PeerConnection = require('./makePeerConnection.js')(brume.ws, username)
     sender({PeerConnection: PeerConnection, baseDir: baseDir})
     receiver({PeerConnection, baseDir})
-    brume.eventQueue.processQ() //start()
+    brume.eventQueue.processQ()
   } catch(e) {
     let minutes= 60
     log(WARN, "createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')

@@ -20,14 +20,23 @@ function log(level, ...args){
 	}
 }
 
-log.setLevel = (level) => { currLevel = level}
+//log.setLevel = (level) => { currLevel = level}
+/*log.setLevel = (level) => {
+	let j
+	currLevel = (j =typeof(level)=='string' ? levelString.indexOf(level) : level) >= ERROR && j <= DEBUG ? j : INFO
+	return currLevel
+}*/
+
 log.getLevel = () => {return currLevel}
 log.debug = (...args) => log(DEBUG, ...args)
 log.info = (...args) => log(INFO, ...args)
 log.warn = (...args) => log(WARN, ...args)
 log.error = (...args) => log(ERROR, ...args)
 log.setOptions = ({level, istty}) => {
-	currLevel = level ? level : currLevel
+	//currLevel = level ? level : currLevel
+	//currLevel = level ? log.setLevel(level) : currLevel
+	let j
+	currLevel = (j =typeof(level)=='string' ? levelString.indexOf(level) : level) >= ERROR && j <= DEBUG ? j : INFO
 	isTTY =  istty ? istty : isTTY
 }
 
