@@ -2,9 +2,8 @@
 "use strict"
 
 const {brume} = require('./global.js')
-      , {log, DEBUG, INFO, WARN, ERROR} = require('./logger.js')
+      , {log} = require('./logger.js')
       , fs = require('fs')
-      , {round, random} = Math
       , jwt = require('jsonwebtoken')
       , {resolve4} = require('mdns-resolver')
       , sender = require("./sender.js")
@@ -19,12 +18,11 @@ const {brume} = require('./global.js')
 ;
 
 var username, token, url, addr, port, logLevel;
-//log.setOptions({level: DEBUG})
 
 function brumeInit() {
   try {
     ;({token, url, logLevel} = JSON.parse(fs.readFileSync(configFile, 'utf-8')))
-    logLevel = process.env.LOG ? process.env.LOG : (logLevel ? logLevel : INFO)
+    logLevel = process.env.LOG ? process.env.LOG : (logLevel ? logLevel : 'INFO')
     log.setOptions({level: logLevel, istty: process.env.ISTTY ? true : null})
     ;([addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null])
     port = port ? ':' + port : ''
@@ -32,7 +30,7 @@ function brumeInit() {
     brume.init(baseDir, username)
     if(!baseDir || !token || !url) throw('baseDir, token or url not set')
   } catch(e) {
-    LOG(ERROR, `brume-client:    brume config error ${configFile} ${e}`)
+    log.error(`brume-client:    brume config error ${configFile} ${e}`)
     process.exit(1)
   }
   brumeStart()
@@ -42,7 +40,7 @@ brume.brumeStart = brumeStart
 
 async function brumeStart() {
   try {
-    log(INFO, 'starting brume-client', username)
+    log.info('starting brume-client', username)
     url = addr
     ? 'ws://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
         ? addr.match(/^\d+\.\d+\.\d+\.\d+/)[0]
@@ -54,11 +52,11 @@ async function brumeStart() {
     const pingInterval = setInterval(function ping() { brume.ws.ping(()=>{}) }, 9.8 * 60 * 1000);
 
     brume.ws.on('pong', ()=>{
-     log(DEBUG, 'ws server: pong')
+     log.debug('ws server: pong')
     })
 
     brume.ws.on('serverclose', (m)=> {
-      log(INFO, 'ws server close')
+      log.info('ws server close')
       clearInterval(pingInterval)
       delete brume.ws
       brumeStart()
@@ -70,9 +68,9 @@ async function brumeStart() {
     brume.eventQueue.processQ()
   } catch(e) {
     let minutes= 60
-    log(WARN, "createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')
+    log.warn("createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')
     setTimeout(brumeInit, minutes*60*1000)
-    brume.watcher.close().then(() => log(DEBUG, 'brume-client:    watcher closed'));
+    brume.watcher.close().then(() => log.debug('brume-client:    watcher closed'));
     delete brume.watcher
   }
 }

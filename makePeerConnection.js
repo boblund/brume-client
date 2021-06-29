@@ -2,7 +2,8 @@
 
 var SimplePeer = require('simple-peer')
     , wrtc = require('wrtc')
-    , createWebsocket = require('./websocket.js')
+    ,{log} = require('./logger.js')
+    //, createWebsocket = require('./websocket.js')
 ;
 
 function createPeer(type) {
@@ -55,7 +56,7 @@ class PeerConnection {
           PeerConnection.peers[offer.channelName] = this
           this.peer.signal(offer);
         } else {
-          console.error('peerConnection: receiver without offer')
+          log.error('peerConnection: receiver without offer')
           process.exit(1)
         }
       }
@@ -72,7 +73,7 @@ class PeerConnection {
             PeerConnection.signallingServer.sendMsg(
               {action: 'send', data: data, to: peerName})
           } catch(e) {
-            console.error('send answer error', data.channelName, e.code)
+            log.error('send answer error', data.channelName, e.code)
           }
         });
 
@@ -81,7 +82,7 @@ class PeerConnection {
         })
 
         this.peer.on('close', () => {
-          //console.log(`${this.#type}:    ${this.peer.channelName} deleting PeerConnection.peers`)
+          log.debug(`${this.#type}:    ${this.peer.channelName} deleting PeerConnection.peers`)
           delete PeerConnection.peers[this.peer.channelName]
         })
 
@@ -105,7 +106,7 @@ function makePeerConnection(ws, name) {
     if(PeerConnection.peers[data.data.channelName]) {
       PeerConnection.peers[data.data.channelName].peer.signal(data.data)
     } else {
-      console.log('peerConnection: no peer for %s', data.from)
+      log.error('peerConnection: no peer for %s', data.from)
     }
   })
 

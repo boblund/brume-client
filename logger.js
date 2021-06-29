@@ -1,43 +1,25 @@
 "use strict"
 
-const DEBUG=3
-			,INFO=2
-			,WARN=1
-			,ERROR=0
-			,levelString = ['ERROR', 'WARN', 'INFO', 'DEBUG']
-
-const optionsDefaults = {
-	currLevel: INFO
-	,isTTY: process.stdout.isTTY
-}
+const levels = { ERROR: 0, WARN: 1, INFO: 2, DEBUG: 3 }
+			,optionsDefaults = { currLevel: levels.INFO, isTTY: process.stdout.isTTY }
+			,strings = Object.keys(levels)
 
 var {currLevel, isTTY} = optionsDefaults
 
 function log(level, ...args){
 	if(level <= currLevel) {
 		if(isTTY) process.stdout.write(new Date().toISOString() + ' ')
-		console.log(`[${levelString[level]}]`, ...args)
+		console.log(`[${strings[level]}]`, ...args)
 	}
 }
 
-//log.setLevel = (level) => { currLevel = level}
-/*log.setLevel = (level) => {
-	let j
-	currLevel = (j =typeof(level)=='string' ? levelString.indexOf(level) : level) >= ERROR && j <= DEBUG ? j : INFO
-	return currLevel
-}*/
-
-log.getLevel = () => {return currLevel}
-log.debug = (...args) => log(DEBUG, ...args)
-log.info = (...args) => log(INFO, ...args)
-log.warn = (...args) => log(WARN, ...args)
-log.error = (...args) => log(ERROR, ...args)
+log.debug = (...args) => log(levels.DEBUG, ...args)
+log.info = (...args) => log(levels.INFO, ...args)
+log.warn = (...args) => log(levels.WARN, ...args)
+log.error = (...args) => log(levels.ERROR, ...args)
 log.setOptions = ({level, istty}) => {
-	//currLevel = level ? level : currLevel
-	//currLevel = level ? log.setLevel(level) : currLevel
-	let j
-	currLevel = (j =typeof(level)=='string' ? levelString.indexOf(level) : level) >= ERROR && j <= DEBUG ? j : INFO
+	currLevel = levels[level] >= levels.ERROR && levels[level] <= levels.DEBUG ? levels[level] : levels.INFO
 	isTTY =  istty ? istty : isTTY
 }
 
-module.exports = {log, DEBUG, INFO, WARN, ERROR}
+module.exports = {log}

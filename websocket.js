@@ -1,5 +1,7 @@
 "use strict";
 
+const {log} = require('./logger.js')
+
 function createWebsocket(url, name, token) {
   return new Promise((resolve, reject) => {
     var ws
@@ -39,9 +41,9 @@ function createWebsocket(url, name, token) {
       }
 
       if(code == 401) {
-        console.log('reauthorize')
+        log.info('reauthorize')
       } else {
-        console.error(err.message)
+        log.error(err.message)
       }
       process.exit(1)
     })
@@ -55,12 +57,12 @@ function createWebsocket(url, name, token) {
 
       switch (data.type) {
         case 'msg':
-          //console.log(`ws:     msg ${data.data.type} ${data.data.channelName}`)
+          log.debug(`ws:     msg ${data.data.type} ${data.data.channelName}`)
           ws.emit(data.data.type, data)
           break
 
         case 'close':
-          console.error('unhandled close')
+          log.error('unhandled close')
           break
 
         case 'peerError':
@@ -72,7 +74,7 @@ function createWebsocket(url, name, token) {
           break
 
         default:
-          console.log('unknown message type:', data)
+          log.error('unknown message type:', data)
           break
       }
     }

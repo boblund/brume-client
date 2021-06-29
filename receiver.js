@@ -3,7 +3,7 @@ const {brume, debug} = require('./global.js')
       ,fs = require('fs')
       ,{dirname, join, basename} = require('path')
       ,{ Transform } = require('stream')
-      ,{log, DEBUG, INFO, WARN, ERROR} = require('./logger.js')
+      ,{log} = require('./logger.js')
 
 ;
 
@@ -54,7 +54,7 @@ function receiver({PeerConnection, baseDir}) {
             let cmd = JSON.parse(data.toString())
                 ,pathParts = null, owner = null, group = null
 
-            log(INFO, 'receiver: cmd', src, JSON.stringify(cmd))
+            log.info('receiver: cmd', src, JSON.stringify(cmd))
             if(cmd.action == 'sync') {
               [owner, group] = [thisUser, cmd.group]
             } else if(cmd.action == 'syncReq') {
@@ -64,7 +64,7 @@ function receiver({PeerConnection, baseDir}) {
             }
               
             if(!groupInfo.memberOf(src, owner, group)){
-              log(WARN, 'receiver: not member of', owner+'/'+group)
+              log.warn('receiver: not member of', owner+'/'+group)
               peer.send(JSON.stringify({type: 'peerError', error: {code: 'ENOTMEMBER'}}));
               peer.destroy()
               resolve()
@@ -155,7 +155,7 @@ function receiver({PeerConnection, baseDir}) {
                     rmPath(path, join(baseDir, base))
                   } catch (err) {
                     resp = {type: 'ERROR', error: err}
-                    log(ERROR, `receiver: unlink error ${err}`)
+                    log.error(`receiver: unlink error ${err}`)
                   } finally {
                     fileData.delete(cmd.file)
                   }
@@ -176,7 +176,7 @@ function receiver({PeerConnection, baseDir}) {
                   resp = {type: 'SUCCESS', cmd: cmd}
                 } catch (e) {
                   resp = {type: 'ERROR', error: e}
-                  log(ERROR, `receiver: rename error ${e.message}`)
+                  log.error(`receiver: rename error ${e.message}`)
                 } finally {
                   peer.send(JSON.stringify(resp));
                   peer.destroy();
@@ -226,7 +226,7 @@ function receiver({PeerConnection, baseDir}) {
                   }
 
                 } catch (e) {
-                  log(ERROR, 'receiver: add/change error', e.message)
+                  log.error('receiver: add/change error', e.message)
                   peer.destroy()
                   reject()
                   return
