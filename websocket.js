@@ -1,6 +1,6 @@
 "use strict";
 
-const {log} = require('./logger.js')
+const log = require('./logger.js')
 
 function createWebsocket(url, name, token) {
   return new Promise((resolve, reject) => {

@@ -2,7 +2,7 @@
 "use strict"
 
 const {brume} = require('./global.js')
-      , {log} = require('./logger.js')
+      , log = require('./logger.js')
       , fs = require('fs')
       , jwt = require('jsonwebtoken')
       , {resolve4} = require('mdns-resolver')

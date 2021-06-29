@@ -2,7 +2,7 @@
 
 var SimplePeer = require('simple-peer')
     , wrtc = require('wrtc')
-    ,{log} = require('./logger.js')
+    ,log = require('./logger.js')
     //, createWebsocket = require('./websocket.js')
 ;
 

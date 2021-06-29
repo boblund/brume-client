@@ -1,6 +1,6 @@
 const {brume, debug} = require('./global.js')
       ,{EventQueue} = require('./eventqueue.js')
-      ,{log} = require('./logger.js')
+      ,log = require('./logger.js')
 ;
 
 function sender({PeerConnection, baseDir}) {

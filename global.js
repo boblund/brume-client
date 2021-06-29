@@ -2,7 +2,7 @@
 const {readdirSync, readFileSync, rmdirSync, statSync, unlinkSync, writeFileSync, promises: {utimes}} = require('fs')
       ,{join} = require('path')
       ,utimesEvents = new NetworkEvents()
-      ,{log, DEBUG, INFO, WARN, ERROR} = require('./logger.js')
+      ,log = require('./logger.js')
 ;
 
 function NetworkEvents() {
@@ -256,11 +256,11 @@ function Brume() {
     this.baseDir = baseDir
     if(this.fileData != undefined) {
       delete this.fileData
-      log(DEBUG, 'brume.init fileData deleted')
+      log.debug('brume.init fileData deleted')
     }
     this.fileData = new FileData()
     if(this.watcher != undefined) {
-      this.watcher.close().then(() => log(DEBUG, 'brumeInit watcher closed'));
+      this.watcher.close().then(() => log.debug('brumeInit watcher closed'));
     }
     this.watcher = require('chokidar').watch('.', {cwd: baseDir, ignored: /-CONFLICT-/})
     function initAddHandler(path, stats) {
@@ -268,7 +268,7 @@ function Brume() {
       if((p.length == 3 && p[2] == '.members') || !path.match(/(^|[\/])\./)) {
         brume.fileData.set(path, {mod: stats.mtime.toISOString()})
         brume.fileData.setSync(path, false)
-        log(DEBUG, `fileData ${path} ${JSON.stringify(brume.fileData.get(path))}`)
+        log.debug(`fileData ${path} ${JSON.stringify(brume.fileData.get(path))}`)
       }
     }
     

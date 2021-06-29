@@ -1,6 +1,7 @@
 const fs = require('fs')
       ,{brume} = require('./global.js')
-      ,{log, DEBUG, INFO, WARN, ERROR} = require('./logger.js')
+      ,log = require('./logger.js')
+      
 var cmdProcessor
 
 function errorHandler(err) {
@@ -8,21 +9,21 @@ function errorHandler(err) {
 
     case 'ENODEST':
       brume.groupInfo.memberStatus(err.peerName, 'notconnected')
-      log(WARN, `user ${err.peerName} not connected`)
+      log.warn(`user ${err.peerName} not connected`)
       if(['add', 'change', 'unlink'].includes(err.cmd.action) && err.cmd.file.split('/')[0] == err.peerName) {
         // File cmd sent to group owner failed because owner not connected.
         // Queue for retry when owner comes back and abort cmd for any remaining group members
         try {
           fs.writeFileSync(brume.baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
         } catch (e) {
-          console.log(`eventQueue: error writing .retryOnSync ${e.message}`)
+          log.error(`eventQueue: error writing .retryOnSync ${e.message}`)
         }
       }
       return 'BREAK'
 
     case 'EBADDEST':
       brume.groupInfo.memberStatus(err.peerName, 'notconnected')
-      log(WARN, `eventQueue: ${err.peerName} not Brume user\n`)
+      log.warn(`eventQueue: ${err.peerName} not Brume user\n`)
       break
       
     case 'ENOTMEMBER':
@@ -47,11 +48,11 @@ function errorHandler(err) {
           group = err.cmd.file.match(/(^.*?\/.*?)\/.*/)[1]
       }
 
-      log(WARN, 'eventQueue: '+ user + ' not member of ' + group)
+      log.warn('eventQueue: '+ user + ' not member of ' + group)
       break
 
     default:
-      log(ERROR, 'eventQueue: unknown error:', err);
+      log.error('eventQueue: unknown error:', err);
   }
   return '';
 }
@@ -71,7 +72,7 @@ class EventQueue {
   }
   
   push(i) {
-    log(DEBUG, 'enqueue', JSON.stringify(i))
+    log.debug('enqueue', JSON.stringify(i))
     this.#a.push(i);
     this.#e.emit('data')
     return i
@@ -91,7 +92,7 @@ class EventQueue {
           user = qEntry.file.split('/')[0]
           group = qEntry.file.split('/')[1]
         } else {
-          log(ERROR, `eventQueue: can't process without group`)
+          log.error(`eventQueue: can't process without group`)
           continue
         }
       }
@@ -102,7 +103,7 @@ class EventQueue {
       
       log.debug('processQ dests', dests)
       if(dests.length == 0) {
-        log(WARN, `eventQueue: no members in group ${group}`)
+        log.warn(`eventQueue: no members in group ${group}`)
         continue
       }
       

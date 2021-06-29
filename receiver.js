@@ -3,7 +3,7 @@ const {brume, debug} = require('./global.js')
       ,fs = require('fs')
       ,{dirname, join, basename} = require('path')
       ,{ Transform } = require('stream')
-      ,{log} = require('./logger.js')
+      ,log = require('./logger.js')
 
 ;
 
