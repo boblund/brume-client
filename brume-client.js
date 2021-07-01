@@ -23,7 +23,7 @@ function brumeInit() {
   try {
     ;({token, url, logLevel} = JSON.parse(fs.readFileSync(configFile, 'utf-8')))
     logLevel = process.env.LOG ? process.env.LOG : (logLevel ? logLevel : 'INFO')
-    log.setOptions({level: logLevel, istty: process.env.ISTTY ? true : null})
+    log.setOptions({level: logLevel, timestamp: process.env.TIMESTAMP})
     ;([addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null])
     port = port ? ':' + port : ''
     ;({username} = jwt.decode(token))//.username
