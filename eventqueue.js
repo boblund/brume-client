@@ -115,7 +115,6 @@ class EventQueue {
           log.info('cmdProcessor result', JSON.stringify(result))
         } catch (e) {
           e.cmd = e.cmd ? e.cmd : qEntry
-          log.error('cmdProcessor error', JSON.stringify(e))
           if(errorHandler(e) == 'BREAK'){
             //group owner of file event not connected. stop sending to any members
             break

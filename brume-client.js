@@ -30,7 +30,7 @@ function brumeInit() {
     brume.init(baseDir, username)
     if(!baseDir || !token || !url) throw('baseDir, token or url not set')
   } catch(e) {
-    log.error(`brume-client:    brume config error ${configFile} ${e}`)
+    log.error(`brume config error ${configFile} ${e.message}`)
     process.exit(1)
   }
   brumeStart()

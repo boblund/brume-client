@@ -52,6 +52,10 @@ function createWebsocket(url, name, token) {
       ws.emit('serverclose', m)
     })
 
+    ws.on('unexpected-response', m => {
+      log.warn('unexpected-response', m)
+    })
+
     ws.onmessage = msg => {
       const data = JSON.parse(msg.data)
 

@@ -87,3 +87,27 @@ You can modify these files, or add a new one, and changes will be reflected on a
 <br/>
 <br/>
 <center><img src="./BrumeArchitecture.png"><br/><h3>Brume Architecture</h3></center>
+
+## Errors
+Supported values for Brume error.code.
+### 400
+Missing token.
+
+### 401
+Token expired. 
+
+### 406
+Invalid token.
+
+### ENODEST (410)
+The requested Brume user is not connected.
+
+### EBADDEST (404)
+The requested Brume user is unknown.
+
+### ENOTMEMBER (409)
+The requested Brume users is not a member of the specified group.
+
+### ECONNREFUSED (503)
+Could not connect to requested websocket server.
+

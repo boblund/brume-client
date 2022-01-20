@@ -5,6 +5,14 @@ const {readdirSync, readFileSync, rmdirSync, statSync, unlinkSync, writeFileSync
       ,log = require('./logger.js')
 ;
 
+class BrumeError extends Error {
+  constructor(msg, code) {
+    super()
+    this.message = msg
+    this.code = code
+  }
+}
+
 function NetworkEvents() {
   var networkEvents = []
 
@@ -372,4 +380,5 @@ function Brume() {
 
 module.exports = {
   brume: new Brume()
+  ,BrumeError: BrumeError
 }
