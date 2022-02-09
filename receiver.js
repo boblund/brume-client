@@ -1,4 +1,5 @@
-"use strict"
+"use strict";
+
 const {brume, debug} = require('./global.js')
       ,fs = require('fs')
       ,{dirname, join, basename} = require('path')
@@ -43,8 +44,7 @@ function receiver({PeerConnection, baseDir}) {
     return new Promise(async (resolve, reject) => {
       let {thisUser, groupInfo, eventQueue, fileData} = brume
       let peerConnection = new PeerConnection('receiver');
-      //let peerPromise = (peerConnection.open)(src, offer)
-      let peer = await (peerConnection.open)(src, offer) //peerPromise
+      let peer = await (peerConnection.open)(src, offer)
 
       try {
         var resp
@@ -54,12 +54,12 @@ function receiver({PeerConnection, baseDir}) {
             let cmd = JSON.parse(data.toString())
                 ,pathParts = null, owner = null, group = null
 
-            log.info('receiver: cmd', src, JSON.stringify(cmd))
+            log.info('receiver:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
             if(cmd.action == 'sync') {
               [owner, group] = [thisUser, cmd.group]
             } else if(cmd.action == 'syncReq') {
               [owner, group] = [src, cmd.group]
-            } else if(['add', 'change', 'rename', 'unlink'].includes(cmd.action)){
+            } else if(['add', 'change', 'unlink'].includes(cmd.action)){
               [owner, group,] = pathParts = cmd.file.split('/')
             }
               
@@ -70,8 +70,6 @@ function receiver({PeerConnection, baseDir}) {
               resolve()
               return
             }
-
-            let oFile = null
 
             switch(cmd.action) {
               case 'sync':
@@ -87,17 +85,16 @@ function receiver({PeerConnection, baseDir}) {
                   let addFiles = ownerFiles.filter(file=>!memberFiles.includes(file))
                   let deleteFiles = memberFiles.filter(file=>!ownerFiles.includes(file))
                   let commonFiles = ownerFiles.filter(file=>memberFiles.includes(file))
-                  let syncedFiles = []
 
                   for(let file of addFiles) {
                     eventQueue.push({
-                      action: 'add', file: file, dest: src //, sync: true
+                      action: 'add', file: file, dest: src, sync: true
                       ,pmod: fileData.get(file).mod, mod: fileData.get(file).mod
                     })
                   }
 
                   for(let file of deleteFiles) {
-                    eventQueue.push({action: 'rename', file: file, newFile: file+'-CONFLICT-NorD', dest: src})
+                    eventQueue.push({action: 'unlink', file: file, dest: src})
                   }
 
                   for(let file of commonFiles) {
@@ -108,12 +105,15 @@ function receiver({PeerConnection, baseDir}) {
                         ,pmod: fileData.get(file).mod, mod: fileData.get(file).mod
                       })
                     } else if(fileData.get(file).mod < cmd.files[file].mod) {
-                      eventQueue.push({action: 'add', file: file, newFile: file+'-CONFLICT-owner', dest: src})
-                    } else {
-                      syncedFiles.push(file)
+                      eventQueue.push({
+                        action: 'change', file: file, mvFile: file+'-CONFLICT-sync', dest: src, sync: true
+                        ,pmod: fileData.get(file).mod, mod: fileData.get(file).mod
+                      })
                     }
                   }
-                  resp = {type: 'SUCCESS', cmd: cmd.action, syncedFiles: syncedFiles}
+
+                  // syncedFiles were all added and common files. take out?
+                  resp = {type: 'SUCCESS', cmd: cmd.action/*, syncedFiles: []*/}
                 }
 
                 peer.send(JSON.stringify(resp));
@@ -148,10 +148,10 @@ function receiver({PeerConnection, baseDir}) {
                 }
 
                 if(unlink){
-                groupInfo.networkEvents.add(cmd)
+                  groupInfo.networkEvents.add(cmd)
                   try {
                     let base, path
-                    [, base, path] = cmd.file.match(/(.*?)\/(.*)/) //(/(.*?\/.*?)\/(.*)/)
+                    [, base, path] = cmd.file.match(/(.*?)\/(.*)/)
                     rmPath(path, join(baseDir, base))
                   } catch (err) {
                     resp = {type: 'ERROR', error: err}
@@ -168,23 +168,6 @@ function receiver({PeerConnection, baseDir}) {
 
                 break
 
-              case 'rename':
-                try {
-                  if(src != pathParts[0]) throw new Error('rename not owner')
-                  await fs.renameSync(baseDir + cmd.file, baseDir + cmd.newFile)
-                  groupInfo.networkEvents.add({action: 'unlink', file: cmd.file})
-                  resp = {type: 'SUCCESS', cmd: cmd}
-                } catch (e) {
-                  resp = {type: 'ERROR', error: e}
-                  log.error(`receiver: rename error ${e.message}`)
-                } finally {
-                  peer.send(JSON.stringify(resp));
-                  peer.destroy();
-                  resolve();
-                  return
-                }
-                break
-
               case 'add':
               case 'change':
                 // Only owner can change or add .members
@@ -195,36 +178,52 @@ function receiver({PeerConnection, baseDir}) {
                   return              
                 }
 
+                if(cmd.mvFile) {
+                  fs.copyFileSync(baseDir+cmd.file, baseDir+cmd.mvFile)
+                }
+
                 let fileParts =  basename(cmd.file).split('.')
                 resp = {type: 'SUCCESS', cmd: cmd}
 
-                if(cmd.action == 'add' && !cmd.newFile && fileData.get(cmd.file)) {
-                  oFile = dirname(cmd.file)+'/'+fileParts[0]+'-CONFLICT-exists-'+src+(fileParts.length==2?'.'+fileParts[0]:'')               
-                } else if(cmd.action == 'change') {
-                  let {mod} = fileData.get(cmd.file)
-                  if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
-                    // change conflict
-                    oFile = dirname(cmd.file)+fileParts[0]
-                            +'-CONFLICT-'+ (mod != cmd.pmod ? '-version-' : '-older-')+src
-                            +(fileParts.length==2 ?'.'+fileParts[0] : '')
+                // If member updating owner, check for errors. None should be possible since members
+                // sync with owner when they start up. Maybe don't need this at all
+
+                if(thisUser == owner) {
+                  let error = null
+
+                  if(cmd.action == 'add' && fileData.get(cmd.file)) {
+                    error = 'CONFLICT-add'                                
+                  } else if(cmd.action == 'change' && cmd.mvFile == undefined) {
+                    let {mod} = fileData.get(cmd.file)
+                    if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
+                      error = 'CONFLICT-change'
+                    }                
+                  }
+
+                  if(error != null) {
+                    // Move errored file and replace with valid version from owner
+                    eventQueue.push({
+                      action: 'add', file: cmd.file ,mvFile: cmd.file + '-' + error, dest: src
+                      ,pmod: fileData.get(cmd.file).mod, mod: fileData.get(cmd.file).mod
+                    })                    
+                    peer.send(JSON.stringify({type: 'ERROR', error: {code: error, message: ''}}));
+                    peer.destroy();
+                    resolve();
+                    return
                   }
                 }
 
                 var outStream;
-                oFile = oFile ? oFile : (cmd.newFile ? cmd.newFile : cmd.file)
                 try {
                   if(cmd.action == 'add') {
-                    fs.mkdirSync(baseDir + dirname(oFile), {recursive: true})
+                    fs.mkdirSync(baseDir + dirname(cmd.file), {recursive: true})
                   }
       
-                  outStream = fs.createWriteStream(baseDir + oFile)
+                  outStream = fs.createWriteStream(baseDir + cmd.file)
 
-                  if(oFile == cmd.file) {
-                    fileData.set(cmd.file, {mod: cmd.mod})
-                    fileData.setSync(cmd.file, true)
-                    groupInfo.networkEvents.add(cmd)
-                  }
-
+                  fileData.set(cmd.file, {mod: cmd.mod})
+                  fileData.setSync(cmd.file, true)
+                  groupInfo.networkEvents.add(cmd)
                 } catch (e) {
                   log.error('receiver: add/change error', e.message)
                   peer.destroy()

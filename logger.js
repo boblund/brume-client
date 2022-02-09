@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 const levels = { ERROR: 0, WARN: 1, INFO: 2, DEBUG: 3 }
 			,strings = Object.keys(levels)

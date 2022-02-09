@@ -1,3 +1,5 @@
+"use strict";
+
 const fs = require('fs')
       ,{brume} = require('./global.js')
       ,log = require('./logger.js')
@@ -6,6 +8,12 @@ var cmdProcessor
 
 function errorHandler(err) {
   switch(err.code) {
+
+    case 'CONFLICT-add':
+    case 'CONFLICT-change':
+      // Error updating owner. Should never happen
+      // Get of updates to other members
+      return 'BREAK'
 
     case 'ENODEST':
       brume.groupInfo.memberStatus(err.peerName, 'notconnected')
@@ -58,33 +66,38 @@ function errorHandler(err) {
 }
 
 class EventQueue { 
-  #a=[];
-  #e
+  #a=[]
+  #started=false
+  //#e
 
   constructor(_cmdProcessor){
     cmdProcessor = _cmdProcessor
-    this.#e = new (require('events')).EventEmitter();
+    //this.#e = new (require('events')).EventEmitter();
     this.setCommandProcessor = (_cmd) => {cmdProcessor = _cmd}
   };
 
-  start() {
-      this.processQ()
-  }
+  /*start() {
+    this.#started=true
+    this.processQ()
+  }*/
   
   push(i) {
     log.debug('enqueue', JSON.stringify(i))
     this.#a.push(i);
-    this.#e.emit('data')
+    //this.#e.emit('data')
+    if(this.#started && this.#a.length == 1) {
+      // Command processor started but the queue was empty so it is not running
+      log.debug('this.processQ()', i.file)
+      this.processQ()
+    }
     return i
   }
 
-  shift() {
-    return this.#a.shift()
-  }
-
   async processQ(){
-    while(this.length() > 0) {
-      let user = null, group = null, qEntry = this.shift()
+    this.#started = true
+    while(this.#a.length > 0) {
+      //let user = null, group = null, qEntry = this.shift()
+      let user = null, group = null, qEntry = this.#a[0]
       log.debug('processQ qEntry', JSON.stringify(qEntry))
        
       if(!(group = qEntry.group)) {
@@ -110,11 +123,13 @@ class EventQueue {
       for(let dest of dests.filter(m => brume.groupInfo.memberStatus(m) == 'active')) {
         let result
         try {
-          log.info('cmdProcessor send', dest, JSON.stringify(qEntry))
+          //log.info('cmdProcessor', dest, JSON.stringify(qEntry))
           result = await cmdProcessor(dest, qEntry)
-          log.info('cmdProcessor result', JSON.stringify(result))
+          log.info('cmdProcessor:    result', result.type, result.cmd.action ? result.cmd.action : result.cmd, result.cmd.file ? result.cmd.file : '')
+          this.#a.shift()
         } catch (e) {
           e.cmd = e.cmd ? e.cmd : qEntry
+          this.#a.shift()
           if(errorHandler(e) == 'BREAK'){
             //group owner of file event not connected. stop sending to any members
             break
@@ -122,14 +137,16 @@ class EventQueue {
         }
       }
     }
-    log.debug('processQ calling this.#e.once')
+
+  /*  log.debug('processQ calling this.#e.once')
     this.#e.once('data', () => {
-      this.processQ()})
+      this.processQ()})*/
   }
 
-  length() {
+  /*length() {
     return this.#a.length
   }
+  */
 
   remove(f) {
     for(var i = this.#a.length - 1; i >= 0; i--) {

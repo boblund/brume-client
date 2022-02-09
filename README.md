@@ -8,8 +8,8 @@ Brume is distinguished from other peer-to-peer file sharing, such as File Pizza 
 
 Brume shared content is organized by ```groups```. A Brume ```user```, the ```owner```of a ```group``` adds content to the ```group``` that is shared with other ```users``` who are ```members``` of the group. Sharing is one way - from the ```owner``` to the ```members```. Below is a simple example where Bob shares Bob/group/file with Alice and Alice shares Alice/group/file with Bob. 
 
-```
 <strong>Bob's Computer</strong>
+```
 BrumeFiles-Bob/            BrumeFiles-Alice/
 ├── Alice                  ├── Alice
 │   └── group              │   └── group
@@ -110,4 +110,16 @@ The requested Brume users is not a member of the specified group.
 
 ### ECONNREFUSED (503)
 Could not connect to requested websocket server.
+
+## Update Sync Conflict Resolution
+
+<table border="1">
+    <thead> <tr><th>operation</th> <th>action</th> <th>resolution</th> </tr></thead>
+    <tr> <td>sync</td> <td>add</td> <td></td> </tr>
+    <tr> <td></td> <td>change wrong version</td> <td>mv file file-conflict-sync</td> </tr>
+    <tr> <td></td> <td>unlink</td> <td></td> </tr>
+    <tr> <td>update</td> <td>add file exists</td> <td>mv file conflict-update-add</td> </tr>
+    <tr> <td></td> <td>change wrong version</td> <td>mv file file-conflict-update-change</td> </tr>
+    <tr> <td></td> <td>unlink</td> <td>            </td> </tr>
+</table>
 

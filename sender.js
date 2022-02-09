@@ -1,3 +1,5 @@
+"use strict";
+
 const {brume, debug} = require('./global.js')
       ,{EventQueue} = require('./eventqueue.js')
       ,log = require('./logger.js')
@@ -7,18 +9,19 @@ function sender({PeerConnection, baseDir}) {
   async function doCommand(dest, cmd){
     return new Promise(async (resolve, reject) => {
       let peerConnection = new PeerConnection('sender'),
-      peer = null;
+          peer = null;
       try {
         peer = await peerConnection.open(dest)
+        log.info('doCommand:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '')
 
         peer.on('data', (data) => {
-          result = JSON.parse(data.toString())
+          let result = JSON.parse(data.toString())
           if(result.type == 'SUCCESS') {
-            if(cmd.action == 'sync') {
+            /*if(cmd.action == 'sync') {
               for(let file of result.syncedFiles) {
                 brume.fileData.setSync(file, true)
               }
-            }
+            }*/
             resolve(result)
           } else {
             //reject(result)

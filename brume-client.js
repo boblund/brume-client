@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-"use strict"
+"use strict";
 
 const {brume} = require('./global.js')
       , log = require('./logger.js')

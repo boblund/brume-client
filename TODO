@@ -1,0 +1,14 @@
+
+2) Add notify for: Web server down, member not connected, owner not connected
+3) Fix log.warn to distinguish between members and owner
+4) On sync or update conflict use own and mark member conflict
+	unlink instead of rename on -CONFLICT-NorD
+	get rid of rename action handling in receiver
+	in receiver add move existing file to newFile
+5) Return 409 if user already connected in connect
+
+
+update conflicts
+	only if owner
+		add and file exists => add file:file mvFile: file-CONFLICT-add
+		change and not right version => add file:file mvFile:file-CONFLICT-change

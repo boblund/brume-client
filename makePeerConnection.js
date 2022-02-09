@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 var SimplePeer = require('simple-peer')
     , wrtc = require('wrtc')
@@ -11,7 +11,7 @@ function createPeer(type) {
         sender: {
           initiator: true
           , trickle: false
-          , channelName: Math.random().toString(36).slice(2)
+          , channelName: PeerConnection.myName + '-' + Math.random().toString(10).slice(2,6)
           , wrtc: wrtc
         }
         ,receiver: {
@@ -45,6 +45,7 @@ class PeerConnection {
 
   open(peerName, offer) {
     return new Promise(async (resolve, reject) => {
+      // should creating a peer be moved after the offer is accepted? 
       this.peer = createPeer(this.#type);
 
       if(this.#type == 'sender'){
@@ -82,7 +83,7 @@ class PeerConnection {
         })
 
         this.peer.on('close', () => {
-          log.debug(`${this.#type}:    ${this.peer.channelName} deleting PeerConnection.peers`)
+          log.info(`${this.#type}:    ${this.peer.channelName} peer close\n`)
           delete PeerConnection.peers[this.peer.channelName]
         })
 
