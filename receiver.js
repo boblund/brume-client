@@ -39,10 +39,9 @@ function rmPath(p, base = '.') {
   }
 }
 
-function receiver({PeerConnection, baseDir}) {
+function receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData}) {
   function offerProcessor(offer, src) {
     return new Promise(async (resolve, reject) => {
-      let {thisUser, groupInfo, eventQueue, fileData} = brume
       let peerConnection = new PeerConnection('receiver');
       let peer = await (peerConnection.open)(src, offer)
 

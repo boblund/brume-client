@@ -65,36 +65,32 @@ function errorHandler(err) {
   return '';
 }
 
-class EventQueue { 
-  #a=[]
-  #started=false
-  //#e
-
-  constructor(_cmdProcessor){
-    cmdProcessor = _cmdProcessor
-    //this.#e = new (require('events')).EventEmitter();
-    this.setCommandProcessor = (_cmd) => {cmdProcessor = _cmd}
-  };
-
-  /*start() {
-    this.#started=true
-    this.processQ()
-  }*/
+class EventQueue {
+  constructor(){}
   
+  #a=[]
+  #cmdProcessor=null
+  #handlerRunning=false
+  
+  setCmdProcessor(cmd) {
+    this.#cmdProcessor = cmd
+    this.#processQ()
+  }
   push(i) {
     log.debug('enqueue', JSON.stringify(i))
     this.#a.push(i);
-    //this.#e.emit('data')
-    if(this.#started && this.#a.length == 1) {
-      // Command processor started but the queue was empty so it is not running
+
+    if(this.#cmdProcessor != null && !this.#handlerRunning) {
       log.debug('this.processQ()', i.file)
-      this.processQ()
+      this.#processQ()
     }
+    
     return i
   }
 
-  async processQ(){
-    this.#started = true
+  async #processQ(){
+    this.#handlerRunning = true
+
     while(this.#a.length > 0) {
       //let user = null, group = null, qEntry = this.shift()
       let user = null, group = null, qEntry = this.#a[0]
@@ -137,16 +133,8 @@ class EventQueue {
         }
       }
     }
-
-  /*  log.debug('processQ calling this.#e.once')
-    this.#e.once('data', () => {
-      this.processQ()})*/
+    this.handlerRunning = false
   }
-
-  /*length() {
-    return this.#a.length
-  }
-  */
 
   remove(f) {
     for(var i = this.#a.length - 1; i >= 0; i--) {

@@ -1,11 +1,8 @@
 "use strict";
 
-const {brume, debug} = require('./global.js')
-      ,{EventQueue} = require('./eventqueue.js')
-      ,log = require('./logger.js')
-;
+const log = require('./logger.js')
 
-function sender({PeerConnection, baseDir}) {
+function sender({PeerConnection, baseDir/*, eventQueue*/}) {
   async function doCommand(dest, cmd){
     return new Promise(async (resolve, reject) => {
       let peerConnection = new PeerConnection('sender'),
@@ -79,8 +76,8 @@ function sender({PeerConnection, baseDir}) {
       }
     })
   }
-  brume.eventQueue.setCommandProcessor(doCommand)
+  return doCommand
+  //brume.eventQueue.setCommandProcessor(doCommand)
 }
 
-brume.eventQueue = new EventQueue()
 module.exports=sender
