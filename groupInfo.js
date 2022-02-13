@@ -1,6 +1,8 @@
 "use strict";
 
 const {readdirSync, readFileSync, statSync, unlinkSync, writeFileSync} = require('fs')
+      ,{join} = require('path')
+      ,log = require('./logger.js')
 
 function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
   let groupData = {}

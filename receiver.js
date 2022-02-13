@@ -1,7 +1,6 @@
 "use strict";
 
-const {brume, debug} = require('./global.js')
-      ,fs = require('fs')
+const fs = require('fs')
       ,{dirname, join, basename} = require('path')
       ,{ Transform } = require('stream')
       ,log = require('./logger.js')

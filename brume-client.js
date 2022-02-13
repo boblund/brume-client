@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-//"use strict";
+"use strict";
 
 const GroupInfo = require('./groupInfo.js')
       , EventQueue = require('./eventQueue.js')
       , FileData = require('./fileData.js')
+      , FileWatcher = require('./fileWatcher.js')
       , NetworkEvents = require('./networkEvents')
       , log = require('./logger.js')
       , fs = require('fs')
@@ -62,7 +63,7 @@ async function brumeStart() {
     ws.on('serverclose', function(m) {
       log.info('ws server close')
       clearInterval(pingInterval)
-      delete ws
+      ws = null
       brumeStart()
     })
 
@@ -76,18 +77,18 @@ async function brumeStart() {
           ,options: {cwd: baseDir, ignored: /-CONFLICT-/}
           ,groupInfo
           ,thisUser
+          ,fileData
       })
 
-
-    let cmdProcessor = sender({PeerConnection: PeerConnection, baseDir: baseDir/*, eventQueue: eventQueue*/})
+    let cmdProcessor = sender({PeerConnection, baseDir, groupInfo})
     receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData})
-    eventQueue.setCommandProcessor(cmdProcessor)
+    eventQueue.setCmdProcessor(cmdProcessor)
   } catch(e) {
     let minutes= 60
     log.warn("createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')
     setTimeout(brumeInit, minutes*60*1000)
     fileWatcher.close().then(() => log.debug('brume-client:    fileWatcher closed'));
-    delete fileWatcher
+    fileWatcher = null
   }
 }
 
