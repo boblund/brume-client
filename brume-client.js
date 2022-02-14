@@ -75,13 +75,15 @@ async function brumeStart() {
     , fileWatcher = new FileWatcher({
           dir: '.'
           ,options: {cwd: baseDir, ignored: /-CONFLICT-/}
+          ,baseDir
           ,groupInfo
           ,thisUser
           ,fileData
+          ,networkEvents
       })
 
     let cmdProcessor = sender({PeerConnection, baseDir, groupInfo})
-    receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData})
+    receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData, networkEvents})
     eventQueue.setCmdProcessor(cmdProcessor)
   } catch(e) {
     let minutes= 60

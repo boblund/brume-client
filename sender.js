@@ -14,7 +14,7 @@ function sender({PeerConnection, baseDir, groupInfo/*, eventQueue*/}) {
   
       case 'ENODEST':
         groupInfo.memberStatus(err.peerName, 'notconnected')
-        log.warn(`user ${err.peerName} not connected`)
+        //log.warn(`user ${err.peerName} not connected`)
         if(['add', 'change', 'unlink'].includes(err.cmd.action) && err.cmd.file.split('/')[0] == err.peerName) {
           // File cmd sent to group owner failed because owner not connected.
           // Queue for retry when owner comes back and abort cmd for any remaining group members
@@ -163,11 +163,15 @@ function sender({PeerConnection, baseDir, groupInfo/*, eventQueue*/}) {
     for(let dest of dests.filter(m => groupInfo.memberStatus(m) == 'active')) {
       let result
       try {
-        //log.info('cmdProcessor', dest, JSON.stringify(qEntry))
+        log.info('processQ:')
+        //log.info('processQ', dest, JSON.stringify(qEntry))
+        log.info('processQ:   ', qEntry.action, qEntry.dest,
+          qEntry.group ? qEntry.group : '', qEntry.file ? qEntry.file : '')
         result = await doCommand(dest, qEntry)
-        log.info('processQ:    result', result.type, result.cmd.action ? result.cmd.action : result.cmd, result.cmd.file ? result.cmd.file : '')
+        log.info('processQ:   result', result.type, result.cmd.action ? result.cmd.action : result.cmd, result.cmd.file ? result.cmd.file : '')
       } catch (e) {
         e.cmd = e.cmd ? e.cmd : qEntry
+        log.info('processQ:    error', e.code, e.cmd.action ? e.cmd.action : e.cmd, e.cmd.file ? e.cmd.file : '')
         if(errorHandler(e) == 'BREAK'){
           //group owner of file event not connected. stop sending to any members
           break

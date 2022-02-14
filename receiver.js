@@ -38,7 +38,7 @@ function rmPath(p, base = '.') {
   }
 }
 
-function receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData}) {
+function receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData, networkEvents}) {
   function offerProcessor(offer, src) {
     return new Promise(async (resolve, reject) => {
       let peerConnection = new PeerConnection('receiver');
@@ -146,7 +146,7 @@ function receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fil
                 }
 
                 if(unlink){
-                  groupInfo.networkEvents.add(cmd)
+                  networkEvents.add(cmd)
                   try {
                     let base, path
                     [, base, path] = cmd.file.match(/(.*?)\/(.*)/)
@@ -221,7 +221,7 @@ function receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fil
 
                   fileData.set(cmd.file, {mod: cmd.mod})
                   fileData.setSync(cmd.file, true)
-                  groupInfo.networkEvents.add(cmd)
+                  networkEvents.add(cmd)
                 } catch (e) {
                   log.error('receiver: add/change error', e.message)
                   peer.destroy()

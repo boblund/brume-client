@@ -12,28 +12,28 @@ class EventQueue {
   
   setCmdProcessor(cmd) {
     this.#cmdProcessor = cmd
-    this.#processQ()
+    this.#eventLoop()
   }
   push(i) {
     log.debug('enqueue', JSON.stringify(i))
     this.#a.push(i);
 
-    if(this.#cmdProcessor != null && !this.#handlerRunning) {
+    if(this.#cmdProcessor != null && this.#handlerRunning == false) {
       log.debug('this.processQ()', i.file)
-      this.#processQ()
+      this.#eventLoop()
     }
     
     return i
   }
 
-  async #processQ(){
+  async #eventLoop(){
     this.#handlerRunning = true
 
     while(this.#a.length > 0) {
-      this.#cmdProcessor(this.#a.shift())
+      await this.#cmdProcessor(this.#a.shift())
     }
 
-    this.handlerRunning = false
+    this.#handlerRunning = false
   }
 
   remove(f) {
