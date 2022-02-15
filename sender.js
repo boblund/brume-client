@@ -2,7 +2,7 @@
 
 const log = require('./logger.js')
 
-function sender({PeerConnection, baseDir, groupInfo/*, eventQueue*/}) {
+function sender({PeerConnection, baseDir, groupInfo, thisUser/*, eventQueue*/}) {
   function errorHandler(err) {
     switch(err.code) {
   
@@ -152,7 +152,7 @@ function sender({PeerConnection, baseDir, groupInfo/*, eventQueue*/}) {
     
     let dests = qEntry.dest
       ? [qEntry.dest]
-      : [user].concat(groupInfo.getMembers(user, group)).filter(m => m != brume.thisUser)
+      : [user].concat(groupInfo.getMembers(user, group)).filter(m => m != thisUser)
     
     log.debug('processQ dests', dests)
     if(dests.length == 0) {
@@ -165,8 +165,8 @@ function sender({PeerConnection, baseDir, groupInfo/*, eventQueue*/}) {
       try {
         log.info('processQ:')
         //log.info('processQ', dest, JSON.stringify(qEntry))
-        log.info('processQ:   ', qEntry.action, qEntry.dest,
-          qEntry.group ? qEntry.group : '', qEntry.file ? qEntry.file : '')
+        log.info('processQ:   ', qEntry.action, qEntry.dest != undefined ? qEntry.dest : '',
+          qEntry.group != undefined ? qEntry.group : '', qEntry.file != undefined ? qEntry.file : '')
         result = await doCommand(dest, qEntry)
         log.info('processQ:   result', result.type, result.cmd.action ? result.cmd.action : result.cmd, result.cmd.file ? result.cmd.file : '')
       } catch (e) {

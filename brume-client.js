@@ -77,12 +77,13 @@ async function brumeStart() {
           ,options: {cwd: baseDir, ignored: /-CONFLICT-/}
           ,baseDir
           ,groupInfo
+          ,eventQueue
           ,thisUser
           ,fileData
           ,networkEvents
       })
 
-    let cmdProcessor = sender({PeerConnection, baseDir, groupInfo})
+    let cmdProcessor = sender({PeerConnection, baseDir, groupInfo, thisUser})
     receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData, networkEvents})
     eventQueue.setCmdProcessor(cmdProcessor)
   } catch(e) {
