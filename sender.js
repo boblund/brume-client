@@ -19,7 +19,7 @@ function sender({PeerConnection, baseDir, groupInfo, thisUser/*, eventQueue*/}) 
           // File cmd sent to group owner failed because owner not connected.
           // Queue for retry when owner comes back and abort cmd for any remaining group members
           try {
-            fs.writeFileSync(brume.baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
+            fs.writeFileSync(baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
           } catch (e) {
             log.error(`eventQueue: error writing .retryOnSync ${e.message}`)
           }
@@ -40,16 +40,16 @@ function sender({PeerConnection, baseDir, groupInfo, thisUser/*, eventQueue*/}) 
         switch(err.cmd.action) {
           case 'syncReq':
             user = err.cmd.dest
-            group = brume.thisUser + '/' + err.cmd.group
+            group = thisUser + '/' + err.cmd.group
             break
   
           case 'sync':
-            user = brume.thisUser
+            user = thisUser
             group = err.cmd.dest + '/' + err.cmd.group
             break
   
           default:
-            user = brume.thisUser
+            user = thisUser
             group = err.cmd.file.match(/(^.*?\/.*?)\/.*/)[1]
         }
   
@@ -75,7 +75,7 @@ function sender({PeerConnection, baseDir, groupInfo, thisUser/*, eventQueue*/}) 
           if(result.type == 'SUCCESS') {
             /*if(cmd.action == 'sync') {
               for(let file of result.syncedFiles) {
-                brume.fileData.setSync(file, true)
+                fileData.setSync(file, true)
               }
             }*/
             resolve(result)
