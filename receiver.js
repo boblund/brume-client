@@ -41,7 +41,7 @@ function rmPath(p, base = '.') {
 function receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData, networkEvents}) {
 
   function fileMod(path) {
-    return statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
+    return fs.statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
   }
 
   function offerProcessor(offer, src) {
@@ -222,11 +222,10 @@ function receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fil
                     fs.mkdirSync(baseDir + dirname(cmd.file), {recursive: true})
                   }
       
-                  outStream = fs.createWriteStream(baseDir + cmd.file)
-
                   fileData.set(cmd.file, {mod: cmd.mod}) //replace with utimes update
                   //fileData.setSync(cmd.file, true)
                   networkEvents.add(cmd)
+                  outStream = fs.createWriteStream(baseDir + cmd.file)
                 } catch (e) {
                   log.error('receiver: add/change error', e.message)
                   peer.destroy()
