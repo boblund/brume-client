@@ -2,8 +2,11 @@
 
 const log = require('./logger.js')
 
-function sender({PeerConnection, baseDir, groupInfo, thisUser/*, eventQueue*/}) {
-  function errorHandler(err) {
+//function sender({PeerConnection, baseDir, groupInfo, thisUser}) {
+  function sender({PeerConnection, brumeData}) {
+    let {baseDir, groupInfo, thisUser} = brumeData
+    
+    function errorHandler(err) {
     switch(err.code) {
   
       case 'CONFLICT-add':
