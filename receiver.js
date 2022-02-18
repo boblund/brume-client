@@ -224,7 +224,7 @@ function receiver({PeerConnection, brumeData, eventQueue}) {
                     fs.mkdirSync(baseDir + dirname(cmd.file), {recursive: true})
                   }
       
-                  fileData.set(cmd.file, {mod: cmd.mod}) //replace with utimes update
+                  fileData.set(cmd.file, {mod: cmd.mod})
                   //fileData.setSync(cmd.file, true)
                   networkEvents.add(cmd)
                   outStream = fs.createWriteStream(baseDir + cmd.file)

@@ -247,7 +247,7 @@ function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
       groupData[user][group] = {members: members}
     }
   }
-  this.sync()
+  //this.sync()
 }
 
 function BrumeData({thisUser, baseDir, eventQueue}) {
@@ -255,7 +255,6 @@ function BrumeData({thisUser, baseDir, eventQueue}) {
   this.baseDir = baseDir
   this.fileData = new FileData()
   this.networkEvents = new NetworkEvents
-  this.utimesEvents = new NetworkEvents
   this.groupInfo = new GroupInfo({baseDir, thisUser, eventQueue, fileData: this.fileData, networkEvents: this.networkEvents})
 }
 

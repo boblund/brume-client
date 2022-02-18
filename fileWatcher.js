@@ -8,7 +8,7 @@ const fileWatcher = require('chokidar')
 
 //function FileWatcher({dir, options, baseDir, groupInfo, eventQueue, thisUser, fileData, networkEvents}) {
 function FileWatcher({dir, options, brumeData, eventQueue}) {
-  let {baseDir, groupInfo, thisUser, fileData, networkEvents, utimesEvents} = brumeData
+  let {baseDir, groupInfo, thisUser, fileData, networkEvents} = brumeData
 
   function initAddHandler(path, stats) {
     let p = path.split('/')
@@ -26,7 +26,8 @@ function FileWatcher({dir, options, brumeData, eventQueue}) {
   watcher
     .on('add', initAddHandler)
     .on('ready', () => {
-      //let utimesEvents = new NetworkEvents;
+      let utimesEvents = new NetworkEvents;
+      groupInfo.sync()
       watcher
         .removeListener('add', initAddHandler)
         .on('all', async (event, path) => {
