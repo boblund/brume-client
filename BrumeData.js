@@ -261,5 +261,5 @@ function BrumeData({thisUser, baseDir, eventQueue}) {
   this.groupInfo = new GroupInfo({baseDir, thisUser, eventQueue, fileData: this.fileData, networkEvents: this.networkEvents})
 }
 
-module.exports = BrumeData
+module.exports = {BrumeData, NetworkEvents}
 
