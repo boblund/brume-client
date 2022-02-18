@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-const BrumeData = require('./BrumeData')
+const {BrumeData} = require('./BrumeData')
 //      , GroupInfo = require('./groupInfo.js')
       , EventQueue = require('./eventQueue.js')
 //      , FileData = require('./fileData.js')
