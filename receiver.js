@@ -42,10 +42,10 @@ function rmPath(p, base = '.') {
 function receiver({PeerConnection, brumeData, eventQueue}) {
   let {baseDir, thisUser, groupInfo, fileData, networkEvents, utimesEvents} = brumeData
 
-  function fileMod(path) {
+/*  function fileMod(path) {
     return fs.statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
   }
-
+*/
   function offerProcessor(offer, src) {
     return new Promise(async (resolve, reject) => {
       let peerConnection = new PeerConnection('receiver');
@@ -94,7 +94,7 @@ function receiver({PeerConnection, brumeData, eventQueue}) {
                   for(let file of addFiles) {
                     eventQueue.push({
                       action: 'add', file: file, dest: src, sync: true
-                      ,pmod: fileMod(file), mod: fileMod(file)
+                      ,pmod: fileData.get(file).mod, mod: fileData.get(file).mod
                     })
                   }
 
@@ -103,16 +103,16 @@ function receiver({PeerConnection, brumeData, eventQueue}) {
                   }
 
                   for(let file of commonFiles) {
-                    if(fileMod(file) > cmd.files[file].mod
-                       || (fileMod(file) != cmd.files[file].mod && file.split('/')[2] == '.members')) {
+                    if(fileData.get(file).mod > cmd.files[file].mod
+                       || (fileData.get(file).mod != cmd.files[file].mod && file.split('/')[2] == '.members')) {
                       eventQueue.push({
                         action: 'change', file: file, dest: src, sync: true
-                        ,pmod: fileMod(file), mod: fileMod(file)
+                        ,pmod: fileData.get(file).mod, mod: fileData.get(file).mod
                       })
-                    } else if(fileMod(file) < cmd.files[file].mod) {
+                    } else if(fileData.get(file).mod < cmd.files[file].mod) {
                       eventQueue.push({
                         action: 'change', file: file, mvFile: file+'-CONFLICT-sync', dest: src, sync: true
-                        ,pmod: fileMod(file), mod: fileMod(file)
+                        ,pmod: fileData.get(file).mod, mod: fileData.get(file).mod
                       })
                     }
                   }
@@ -199,7 +199,7 @@ function receiver({PeerConnection, brumeData, eventQueue}) {
                   if(cmd.action == 'add' && fileData.get(cmd.file)) {
                     error = 'CONFLICT-add'                                
                   } else if(cmd.action == 'change' && cmd.mvFile == undefined) {
-                    let mod = fileMod(cmd.file)
+                    let mod = fileData.get(cmd.file).mod
                     if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
                       error = 'CONFLICT-change'
                     }                
@@ -209,7 +209,7 @@ function receiver({PeerConnection, brumeData, eventQueue}) {
                     // Move errored file and replace with valid version from owner
                     eventQueue.push({
                       action: 'add', file: cmd.file ,mvFile: cmd.file + '-' + error, dest: src
-                      ,pmod: fileMod(cmd.file), mod: fileMod(cmd.file)
+                      ,pmod: fileData.get(cmd.file).mod, mod: fileData.get(cmd.file).mod
                     })                    
                     peer.send(JSON.stringify({type: 'ERROR', error: {code: error, message: ''}}));
                     peer.destroy();
