@@ -33,10 +33,12 @@ class FileData extends Map {
 // class NetworkEvents
 //
 
-function NetworkEvents() {
+function NetworkEvents(_name) {
   var networkEvents = []
+      ,name = _name
 
   this.add = cmd => {
+    log.debug(`NetworkEvents.add:    ${name} ${JSON.stringify(cmd)}`)
     networkEvents.push(cmd)
   }
 
@@ -46,7 +48,8 @@ function NetworkEvents() {
     )
 
     if(index > -1) {
-      // ignore file event caused by network event 
+      // ignore file event caused by network event
+      log.debug(`NetworkEvents.remove:    ${name} ${JSON.stringify(cmd)}`) 
       networkEvents.splice(index, 1)
     }
 
@@ -254,7 +257,7 @@ function BrumeData({thisUser, baseDir, eventQueue}) {
   this.thisUser = thisUser
   this.baseDir = baseDir
   this.fileData = new FileData()
-  this.networkEvents = new NetworkEvents
+  this.networkEvents = new NetworkEvents('network')
   this.groupInfo = new GroupInfo({baseDir, thisUser, eventQueue, fileData: this.fileData, networkEvents: this.networkEvents})
 }
 

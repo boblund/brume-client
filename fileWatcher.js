@@ -4,7 +4,7 @@ const fileWatcher = require('chokidar')
       , {statSync, promises: {utimes}} = require('fs')
       , {join} = require('path')
       , log = require('./logger.js')
-      , NetworkEvents = require('./networkEvents.js')
+      , NetworkEvents = require('./old-networkEvents.js')
 
 //function FileWatcher({dir, options, baseDir, groupInfo, eventQueue, thisUser, fileData, networkEvents}) {
 function FileWatcher({dir, options, brumeData, eventQueue}) {
@@ -26,7 +26,7 @@ function FileWatcher({dir, options, brumeData, eventQueue}) {
   watcher
     .on('add', initAddHandler)
     .on('ready', () => {
-      let utimesEvents = new NetworkEvents;
+      let utimesEvents = new NetworkEvents('utime');
       groupInfo.sync()
       watcher
         .removeListener('add', initAddHandler)
