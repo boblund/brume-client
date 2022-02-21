@@ -103,7 +103,7 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
             case 'unlinkDir':
               p = path.split('/')
               if(p.length ==2 && p[0] != thisUser) {
-                groupInfo.rmGroup(p[0], p[1])
+                //groupInfo.rmGroup(p[0], p[1]) // replaced by removing group .members
               }
           }
         })
