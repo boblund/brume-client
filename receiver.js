@@ -39,8 +39,8 @@ function rmPath(p, base = '.') {
 }
 
 //function receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData, networkEvents}) {
-function receiver({PeerConnection, brumeData, eventQueue}) {
-  let {baseDir, thisUser, groupInfo, fileData, networkEvents, utimesEvents} = brumeData
+function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
+  let {baseDir, thisUser, groupInfo, fileData} = brumeData
 
 /*  function fileMod(path) {
     return fs.statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()

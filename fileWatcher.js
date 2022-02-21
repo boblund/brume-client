@@ -4,11 +4,10 @@ const fileWatcher = require('chokidar')
       , {statSync, promises: {utimes}} = require('fs')
       , {join} = require('path')
       , log = require('./logger.js')
-      , {NetworkEvents} = require('./BrumeData.js')
+      , NetworkEvents = require('./networkEvents.js')
 
-//function FileWatcher({dir, options, baseDir, groupInfo, eventQueue, thisUser, fileData, networkEvents}) {
-function FileWatcher({dir, options, brumeData, eventQueue}) {
-  let {baseDir, groupInfo, thisUser, fileData, networkEvents} = brumeData
+function FileWatcher({brumeData, eventQueue, networkEvents}) {
+  let {baseDir, groupInfo, thisUser, fileData} = brumeData
 
   function initAddHandler(path, stats) {
     let p = path.split('/')
@@ -19,8 +18,11 @@ function FileWatcher({dir, options, brumeData, eventQueue}) {
     }
   }
 
-  const watcher = fileWatcher.watch(dir, options)
-  
+  const watcher = fileWatcher.watch('.', {
+    cwd: baseDir
+    ,ignored: /-CONFLICT-/
+    ,awaitWriteFinish: {stabilityThreshold: 200}
+  })
   this.close = watcher.close
 
   watcher
@@ -67,6 +69,7 @@ function FileWatcher({dir, options, brumeData, eventQueue}) {
                 try {
                   utimesEvents.add({action: 'change', file: path})
                   let date = new Date(fileData.get(path).mod)
+                  log.debug(`fileWatcher:    utimes(${baseDir+path})`)
                   await utimes(baseDir+path, date, date)
                 } catch (e) {
                   log.error(`watcher utimes error ${path} ${e.message}`)

@@ -30,35 +30,6 @@ class FileData extends Map {
 }
 
 //
-// class NetworkEvents
-//
-
-function NetworkEvents(_name) {
-  var networkEvents = []
-      ,name = _name
-
-  this.add = cmd => {
-    log.debug(`NetworkEvents.add:    ${name} ${JSON.stringify(cmd)}`)
-    networkEvents.push(cmd)
-  }
-
-  this.remove = function(cmd){
-    let index = networkEvents.findIndex( e => 
-        (e.action == cmd.action && e.file == cmd.file)
-    )
-
-    if(index > -1) {
-      // ignore file event caused by network event
-      log.debug(`NetworkEvents.remove:    ${name} ${JSON.stringify(cmd)}`) 
-      networkEvents.splice(index, 1)
-    }
-
-    return index
-
-  }
-}
-
-//
 // class GroupInfo
 //
 
@@ -253,13 +224,12 @@ function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
   //this.sync()
 }
 
-function BrumeData({thisUser, baseDir, eventQueue}) {
+function BrumeData({thisUser, baseDir, eventQueue, networkEvents}) {
   this.thisUser = thisUser
   this.baseDir = baseDir
   this.fileData = new FileData()
-  this.networkEvents = new NetworkEvents('network')
-  this.groupInfo = new GroupInfo({baseDir, thisUser, eventQueue, fileData: this.fileData, networkEvents: this.networkEvents})
+  this.groupInfo = new GroupInfo({baseDir, thisUser, eventQueue, fileData: this.fileData, networkEvents})
 }
 
-module.exports = {BrumeData, NetworkEvents}
+module.exports = {BrumeData}
 

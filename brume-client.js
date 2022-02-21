@@ -6,7 +6,7 @@ const {BrumeData} = require('./BrumeData')
       , EventQueue = require('./eventQueue.js')
 //      , FileData = require('./fileData.js')
       , FileWatcher = require('./fileWatcher.js')
-//      , NetworkEvents = require('./networkEvents')
+      , NetworkEvents = require('./networkEvents')
       , log = require('./logger.js')
       , fs = require('fs')
       , jwt = require('jsonwebtoken')
@@ -69,25 +69,13 @@ async function brumeStart() {
     })
 
     var PeerConnection = require('./makePeerConnection.js')(ws, thisUser)
-    , eventQueue = new EventQueue()
-    //, fileData = new FileData()
-    //, networkEvents = new NetworkEvents
-    //, groupInfo = new GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents})
-    , brumeData = new BrumeData({thisUser, baseDir, eventQueue})
-    , fileWatcher = new FileWatcher({
-          dir: '.'
-          ,options: {cwd: baseDir, ignored: /-CONFLICT-/}
-  //        ,baseDir
-  //        ,groupInfo
-          ,brumeData
-          ,eventQueue
-  //        ,thisUser
-  //        ,fileData
-  //        ,networkEvents
-      })
+        ,eventQueue = new EventQueue()
+        ,networkEvents = new NetworkEvents
+        ,brumeData = new BrumeData({thisUser, baseDir, eventQueue, networkEvents})
+        ,fileWatcher = new FileWatcher({brumeData, eventQueue, networkEvents})
 
-    let cmdProcessor = sender({PeerConnection, brumeData/*baseDir, groupInfo, thisUser*/})
-    receiver({PeerConnection, brumeData, /*baseDir, thisUser, groupInfo,*/ eventQueue /*, fileData, networkEvents*/})
+    let cmdProcessor = sender({PeerConnection, brumeData})
+    receiver({PeerConnection, brumeData, eventQueue, networkEvents})
     eventQueue.setCmdProcessor(cmdProcessor)
   } catch(e) {
     let minutes= 60
