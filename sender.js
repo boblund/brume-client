@@ -35,7 +35,7 @@ const log = require('./logger.js')
         break
         
       case 'ENOTMEMBER':
-        //groupInfo.memberStatus(err.peerName, 'notconnected')
+        groupInfo.memberStatus(err.peerName, 'notconnected')
         //syncReq err.peerName || err.cmd.dest, brume.thisUser, err.cmd.group
         //change err.peerName, err,cmd.file.split('/')[0]/[1]
         let user, group
