@@ -68,7 +68,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
               [owner, group,] = pathParts = cmd.file.split('/')
             }
               
-            if(!groupInfo.memberOf(src, owner, group)){
+            if(!groupInfo.memberOf(owner, group)){
               log.warn('receiver: not member of', owner+'/'+group)
               peer.send(JSON.stringify({type: 'peerError', error: {code: 'ENOTMEMBER'}}));
               peer.destroy()

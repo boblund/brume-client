@@ -54,7 +54,7 @@ function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
     }
   };
 
-  this.memberOf = (src, owner, group) => {
+  this.memberOf = (owner, group) => {
       return groupData[owner] && groupData[owner][group]
   }
 
