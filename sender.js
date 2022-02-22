@@ -3,7 +3,7 @@
 const log = require('./logger.js')
 
 //function sender({PeerConnection, baseDir, groupInfo, thisUser}) {
-  function sender({PeerConnection, brumeData}) {
+  function sender({PeerConnection, eventQueue, brumeData}) {
     let {baseDir, groupInfo, thisUser} = brumeData
     
     function errorHandler(err) {
@@ -181,7 +181,7 @@ const log = require('./logger.js')
         }
       }
     }
-    this.handlerRunning = false
+    eventQueue.handlerRunning(false)
   }
   
   return processQ

@@ -14,6 +14,11 @@ class EventQueue {
     this.#cmdProcessor = cmd
     this.#eventLoop()
   }
+
+  handlerRunning(f) {
+    this.#handlerRunning = f
+  }
+  
   push(i) {
     log.debug('enqueue', JSON.stringify(i))
     this.#a.push(i);

@@ -74,7 +74,7 @@ async function brumeStart() {
         ,brumeData = new BrumeData({thisUser, baseDir, eventQueue, networkEvents})
         ,fileWatcher = new FileWatcher({brumeData, eventQueue, networkEvents})
 
-    let cmdProcessor = sender({PeerConnection, brumeData})
+    let cmdProcessor = sender({PeerConnection, eventQueue, brumeData})
     receiver({PeerConnection, brumeData, eventQueue, networkEvents})
     eventQueue.setCmdProcessor(cmdProcessor)
   } catch(e) {

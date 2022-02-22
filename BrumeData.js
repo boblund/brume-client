@@ -154,7 +154,7 @@ function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
     }
 
     groupData[user][group] = { members: newMembers}
-    if(user == thisUser) {
+    if(user == thisUser && member == null) {
       added.filter(m => m != thisUser).forEach(member => {
         //this.memberStatus(member, 'active');
         this.sync(user, group, member)
