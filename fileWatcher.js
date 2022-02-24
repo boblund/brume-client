@@ -36,7 +36,7 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
           log.info('fileWatcher:')
           log.info('fileWatcher:    ', event, path)
           if(utimesEvents.remove({action: event, file: path}) > -1) {
-            log.debug('utimesEvent', event, path)
+            log.info('fileWatcher:    utimesEvent', event, path)
             return
           }
 
@@ -66,7 +66,7 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
                 //fileData.setSync(cmd.file, false)
                 eventQueue.push(cmd)
               } else {
-                log.debug('networkEvent', event, path)
+                log.info('fileWatcher:    networkEvent', event, path)
 
                 try {
                   utimesEvents.add({action: 'change', file: path})
@@ -87,7 +87,7 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
                 if(p[2] == '.members') cmd.dest = p[0]  // only send unlink .members to group owner
                 if(groupInfo.memberOf(p[0], p[1])) eventQueue.push(cmd) // only send not group member
               } else {
-                log.debug('networkEvent', event, path)
+                 log.info('fileWatcher:    networkEvent', event, path)
               }
               
               break
