@@ -71,7 +71,7 @@ const log = require('./logger.js')
           peer = null;
       try {
         peer = await peerConnection.open(dest)
-        log.info('doCommand:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '')
+        log.debug('doCommand:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '')
 
         peer.on('data', (data) => {
           let result = JSON.parse(data.toString())
@@ -166,22 +166,21 @@ const log = require('./logger.js')
     for(let dest of dests.filter(m => groupInfo.memberStatus(m) == 'active')) {
       let result
       try {
-        log.info('processQ:')
-        //log.info('processQ', dest, JSON.stringify(qEntry))
-        log.info('processQ:   ', qEntry.action, qEntry.dest != undefined ? qEntry.dest : '',
+        log.info('sender:')
+        log.info('sender:   ', qEntry.action, dest,
           qEntry.group != undefined ? qEntry.group : '', qEntry.file != undefined ? qEntry.file : '')
         result = await doCommand(dest, qEntry)
-        log.info('processQ:   result', result.type, result.cmd.action ? result.cmd.action : result.cmd, result.cmd.file ? result.cmd.file : '')
+        log.info('sender:   ', result.cmd.action ? result.cmd.action : result.cmd, dest, result.cmd.file ? result.cmd.file : '', result.type)
       } catch (e) {
         e.cmd = e.cmd ? e.cmd : qEntry
-        log.info('processQ:    error', e.code, e.cmd.action ? e.cmd.action : e.cmd, e.cmd.file ? e.cmd.file : '')
+        log.info('sender:   ', e.cmd.action ? e.cmd.action : e.cmd, dest,  e.cmd.file ? e.cmd.file : '', e.code)
         if(errorHandler(e) == 'BREAK'){
           //group owner of file event not connected. stop sending to any members
           break
         }
       }
     }
-    eventQueue.handlerRunning(false)
+    //eventQueue.handlerRunning(false)
   }
   
   return processQ

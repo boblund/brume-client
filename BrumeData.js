@@ -176,8 +176,8 @@ function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
 
     if(action == 'unlink') {
       try{
-        writeFileSync(join(baseDir, user, group, '.members'), JSON.stringify(newMembers))
         networkEvents.add({action: 'change', file: join(user, group, '.members')})
+        writeFileSync(join(baseDir, user, group, '.members'), JSON.stringify(newMembers))
       } catch(e) {
         log.error('updateMembers .members write error', e.message)
       }                     

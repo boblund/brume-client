@@ -33,7 +33,8 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
       watcher
         .removeListener('add', initAddHandler)
         .on('all', async (event, path) => {
-          log.info('file event', event, path)
+          log.info('fileWatcher:')
+          log.info('fileWatcher:    ', event, path)
           if(utimesEvents.remove({action: event, file: path}) > -1) {
             log.debug('utimesEvent', event, path)
             return
@@ -47,6 +48,7 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
             if(p.length == 3 && p[2] == '.members' && p[0] == thisUser) {
               groupInfo.updateMembers(p[0], p[1], cmd.action)
             }
+            return
           }
 
           switch(event) {

@@ -59,7 +59,9 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
             let cmd = JSON.parse(data.toString())
                 ,pathParts = null, owner = null, group = null
 
-            log.info('receiver:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
+            log.info('receiver:')
+            log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
+            log.debug('receiver:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
             if(cmd.action == 'sync') {
               [owner, group] = [thisUser, cmd.group]
             } else if(cmd.action == 'syncReq') {
@@ -69,7 +71,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
             }
               
             if(!groupInfo.memberOf(owner, group)){
-              log.warn('receiver: not member of', owner+'/'+group)
+              log.warn('receiver:    not member of', owner+'/'+group)
               peer.send(JSON.stringify({type: 'peerError', error: {code: 'ENOTMEMBER'}}));
               peer.destroy()
               resolve()
@@ -122,6 +124,8 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                 }
 
                 peer.send(JSON.stringify(resp));
+                log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                  , resp.error ? resp.error.code ? resp.error.code : '' : '')
                 peer.destroy()
                 resolve()
                 return
@@ -133,6 +137,8 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                 groupInfo.sync(src, cmd.group)
                 peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd.action}));
                 peer.destroy()
+                log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                , resp.error ? resp.error : '')              
                 resolve()
                 break
 
@@ -168,10 +174,10 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 
                 peer.send(JSON.stringify(resp));
                 peer.destroy();
+                log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                , resp.error ? resp.error : '')
                 resolve();
                 return
-
-                break
 
               case 'add':
               case 'change':
@@ -179,6 +185,8 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                 if(pathParts[2] == '.members' && pathParts[0] != src) {
                   peer.send(JSON.stringify({type: 'ERROR', error: {code: 'NOTALLOWED', message: 'not owner'}}));
                   peer.destroy();
+                  log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                , resp.error ? resp.error : '')
                   resolve();
                   return              
                 }
@@ -213,6 +221,8 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                     })                    
                     peer.send(JSON.stringify({type: 'ERROR', error: {code: error, message: ''}}));
                     peer.destroy();
+                    log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                      , resp.error ? resp.error : '')
                     resolve();
                     return
                   }
@@ -231,12 +241,15 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                 } catch (e) {
                   log.error('receiver: add/change error', e.message)
                   peer.destroy()
+                  log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', ERROR, e)
                   reject()
                   return
                 }
 
                 outStream.on('close', () => {
-                  peer.send(JSON.stringify(resp));     
+                  peer.send(JSON.stringify(resp));
+                  log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                    , resp.error ? resp.error : '')     
                   resolve()
                   peer.destroy()
                 })
@@ -249,12 +262,12 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                 break
 
               default:
-                log.error(`receiver: unknown cmd.action ${src} ${cmd.action}`)
+                log.info('receiver:   ', cmd.action, src, 'ERROR unknown action')
                 peer.destroy()
                 break            
             }
           } catch(e) {
-            log.error('receiver: sender command error', e)
+            log.error('receiver:    ', src, 'ERROR', e)
             resp = {type: 'ERROR', error: e}
             peer.send(JSON.stringify(resp));
             peer.destroy()
@@ -268,7 +281,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
         })
 
       } catch (err) {
-        log.error(`receiver: error ${src} ${err}`)
+        log.error(`receiver:    ERROR ${src} ${err}`)
       }
     })
   }

@@ -35,7 +35,8 @@ class EventQueue {
     this.#handlerRunning = true
 
     while(this.#a.length > 0) {
-      await this.#cmdProcessor(this.#a.shift())
+      let e = this.#a.shift()
+      await this.#cmdProcessor(e)
     }
 
     this.#handlerRunning = false
