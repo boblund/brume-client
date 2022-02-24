@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 "use strict";
 
-const {brume} = require('./global.js')
+const {BrumeData} = require('./BrumeData')
+//      , GroupInfo = require('./groupInfo.js')
+      , EventQueue = require('./eventQueue.js')
+//      , FileData = require('./fileData.js')
+      , FileWatcher = require('./fileWatcher.js')
+      , NetworkEvents = require('./networkEvents')
       , log = require('./logger.js')
       , fs = require('fs')
       , jwt = require('jsonwebtoken')
@@ -17,7 +22,7 @@ const {brume} = require('./global.js')
             : process.env.HOME+'/.config/Brume/brume.conf'
 ;
 
-var username, token, url, addr, port, logLevel;
+var thisUser, token, url, addr, port, logLevel;
 
 function brumeInit() {
   try {
@@ -26,8 +31,8 @@ function brumeInit() {
     log.setOptions({level: logLevel, timestamp: process.env.TIMESTAMP})
     ;([addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null])
     port = port ? ':' + port : ''
-    ;({username} = jwt.decode(token))//.username
-    brume.init(baseDir, username)
+    thisUser = jwt.decode(token).username
+    //brume.init(baseDir, thisUser)
     if(!baseDir || !token || !url) throw('baseDir, token or url not set')
   } catch(e) {
     log.error(`brume config error ${configFile} ${e.message}`)
@@ -36,42 +41,48 @@ function brumeInit() {
   brumeStart()
 }
 
-brume.brumeStart = brumeStart
+//brume.brumeStart = brumeStart
 
 async function brumeStart() {
+  var ws
   try {
-    log.info('starting brume-client', username)
+    log.info('starting brume-client', thisUser)
     url = addr
     ? 'ws://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
         ? addr.match(/^\d+\.\d+\.\d+\.\d+/)[0]
         : await new Promise(res=>{resolve4(addr).then(res).catch(()=>{res(addr)})})
       ) + port
     : url
-    brume.ws = await createWebsocket(url, username, token)
+    ws = await createWebsocket(url, thisUser, token)
     log.info('connected to ws server ' + url)
-    const pingInterval = setInterval(function ping() { brume.ws.ping(()=>{}) }, 9.8 * 60 * 1000);
+    const pingInterval = setInterval(function ping() { ws.ping(()=>{}) }, 9.8 * 60 * 1000);
 
-    brume.ws.on('pong', ()=>{
+    ws.on('pong', ()=>{
      log.debug('ws server: pong')
     })
 
-    brume.ws.on('serverclose', (m)=> {
+    ws.on('serverclose', function(m) {
       log.info('ws server close')
       clearInterval(pingInterval)
-      delete brume.ws
+      ws = null
       brumeStart()
     })
 
-    var PeerConnection = require('./makePeerConnection.js')(brume.ws, username)
-    sender({PeerConnection: PeerConnection, baseDir: baseDir})
-    receiver({PeerConnection, baseDir})
-    brume.eventQueue.processQ()
+    var PeerConnection = require('./makePeerConnection.js')(ws, thisUser)
+        ,eventQueue = new EventQueue()
+        ,networkEvents = new NetworkEvents
+        ,brumeData = new BrumeData({thisUser, baseDir, eventQueue, networkEvents})
+        ,fileWatcher = new FileWatcher({brumeData, eventQueue, networkEvents})
+
+    let cmdProcessor = sender({PeerConnection, eventQueue, brumeData})
+    receiver({PeerConnection, brumeData, eventQueue, networkEvents})
+    eventQueue.setCmdProcessor(cmdProcessor)
   } catch(e) {
     let minutes= 60
     log.warn("createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')
     setTimeout(brumeInit, minutes*60*1000)
-    brume.watcher.close().then(() => log.debug('brume-client:    watcher closed'));
-    delete brume.watcher
+    fileWatcher.close().then(() => log.debug('brume-client:    fileWatcher closed'));
+    fileWatcher = null
   }
 }
 

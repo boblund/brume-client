@@ -1,7 +1,6 @@
 "use strict";
 
-const {brume, debug} = require('./global.js')
-      ,fs = require('fs')
+const fs = require('fs')
       ,{dirname, join, basename} = require('path')
       ,{ Transform } = require('stream')
       ,log = require('./logger.js')
@@ -39,10 +38,16 @@ function rmPath(p, base = '.') {
   }
 }
 
-function receiver({PeerConnection, baseDir}) {
+//function receiver({PeerConnection, baseDir, thisUser, groupInfo, eventQueue, fileData, networkEvents}) {
+function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
+  let {baseDir, thisUser, groupInfo, fileData} = brumeData
+
+/*  function fileMod(path) {
+    return fs.statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
+  }
+*/
   function offerProcessor(offer, src) {
     return new Promise(async (resolve, reject) => {
-      let {thisUser, groupInfo, eventQueue, fileData} = brume
       let peerConnection = new PeerConnection('receiver');
       let peer = await (peerConnection.open)(src, offer)
 
@@ -54,7 +59,9 @@ function receiver({PeerConnection, baseDir}) {
             let cmd = JSON.parse(data.toString())
                 ,pathParts = null, owner = null, group = null
 
-            log.info('receiver:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
+            log.info('receiver:')
+            log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
+            log.debug('receiver:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
             if(cmd.action == 'sync') {
               [owner, group] = [thisUser, cmd.group]
             } else if(cmd.action == 'syncReq') {
@@ -63,8 +70,8 @@ function receiver({PeerConnection, baseDir}) {
               [owner, group,] = pathParts = cmd.file.split('/')
             }
               
-            if(!groupInfo.memberOf(src, owner, group)){
-              log.warn('receiver: not member of', owner+'/'+group)
+            if(!groupInfo.memberOf(owner, group)){
+              log.warn('receiver:    not member of', owner+'/'+group)
               peer.send(JSON.stringify({type: 'peerError', error: {code: 'ENOTMEMBER'}}));
               peer.destroy()
               resolve()
@@ -117,6 +124,8 @@ function receiver({PeerConnection, baseDir}) {
                 }
 
                 peer.send(JSON.stringify(resp));
+                log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                  , resp.error ? resp.error.code ? resp.error.code : '' : '')
                 peer.destroy()
                 resolve()
                 return
@@ -128,6 +137,8 @@ function receiver({PeerConnection, baseDir}) {
                 groupInfo.sync(src, cmd.group)
                 peer.send(JSON.stringify({type: 'SUCCESS', cmd: cmd.action}));
                 peer.destroy()
+                log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                , resp.error ? resp.error : '')              
                 resolve()
                 break
 
@@ -148,7 +159,7 @@ function receiver({PeerConnection, baseDir}) {
                 }
 
                 if(unlink){
-                  groupInfo.networkEvents.add(cmd)
+                  networkEvents.add(cmd)
                   try {
                     let base, path
                     [, base, path] = cmd.file.match(/(.*?)\/(.*)/)
@@ -163,10 +174,10 @@ function receiver({PeerConnection, baseDir}) {
 
                 peer.send(JSON.stringify(resp));
                 peer.destroy();
+                log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                , resp.error ? resp.error : '')
                 resolve();
                 return
-
-                break
 
               case 'add':
               case 'change':
@@ -174,6 +185,8 @@ function receiver({PeerConnection, baseDir}) {
                 if(pathParts[2] == '.members' && pathParts[0] != src) {
                   peer.send(JSON.stringify({type: 'ERROR', error: {code: 'NOTALLOWED', message: 'not owner'}}));
                   peer.destroy();
+                  log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                , resp.error ? resp.error : '')
                   resolve();
                   return              
                 }
@@ -194,7 +207,7 @@ function receiver({PeerConnection, baseDir}) {
                   if(cmd.action == 'add' && fileData.get(cmd.file)) {
                     error = 'CONFLICT-add'                                
                   } else if(cmd.action == 'change' && cmd.mvFile == undefined) {
-                    let {mod} = fileData.get(cmd.file)
+                    let mod = fileData.get(cmd.file).mod
                     if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
                       error = 'CONFLICT-change'
                     }                
@@ -208,6 +221,8 @@ function receiver({PeerConnection, baseDir}) {
                     })                    
                     peer.send(JSON.stringify({type: 'ERROR', error: {code: error, message: ''}}));
                     peer.destroy();
+                    log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                      , resp.error ? resp.error : '')
                     resolve();
                     return
                   }
@@ -219,20 +234,22 @@ function receiver({PeerConnection, baseDir}) {
                     fs.mkdirSync(baseDir + dirname(cmd.file), {recursive: true})
                   }
       
-                  outStream = fs.createWriteStream(baseDir + cmd.file)
-
                   fileData.set(cmd.file, {mod: cmd.mod})
-                  fileData.setSync(cmd.file, true)
-                  groupInfo.networkEvents.add(cmd)
+                  //fileData.setSync(cmd.file, true)
+                  networkEvents.add(cmd)
+                  outStream = fs.createWriteStream(baseDir + cmd.file)
                 } catch (e) {
                   log.error('receiver: add/change error', e.message)
                   peer.destroy()
+                  log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', ERROR, e)
                   reject()
                   return
                 }
 
                 outStream.on('close', () => {
-                  peer.send(JSON.stringify(resp));     
+                  peer.send(JSON.stringify(resp));
+                  log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
+                    , resp.error ? resp.error : '')     
                   resolve()
                   peer.destroy()
                 })
@@ -245,12 +262,12 @@ function receiver({PeerConnection, baseDir}) {
                 break
 
               default:
-                log.error(`receiver: unknown cmd.action ${src} ${cmd.action}`)
+                log.info('receiver:   ', cmd.action, src, 'ERROR unknown action')
                 peer.destroy()
                 break            
             }
           } catch(e) {
-            log.error('receiver: sender command error', e)
+            log.error('receiver:    ', src, 'ERROR', e)
             resp = {type: 'ERROR', error: e}
             peer.send(JSON.stringify(resp));
             peer.destroy()
@@ -264,7 +281,7 @@ function receiver({PeerConnection, baseDir}) {
         })
 
       } catch (err) {
-        log.error(`receiver: error ${src} ${err}`)
+        log.error(`receiver:    ERROR ${src} ${err}`)
       }
     })
   }

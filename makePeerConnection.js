@@ -44,7 +44,7 @@ class PeerConnection {
   }
 
   open(peerName, offer) {
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       // should creating a peer be moved after the offer is accepted? 
       this.peer = createPeer(this.#type);
 
@@ -83,7 +83,7 @@ class PeerConnection {
         })
 
         this.peer.on('close', () => {
-          log.info(`${this.#type}:    ${this.peer.channelName} peer close\n`)
+          log.debug(`${this.#type}:    ${this.peer.channelName} peer close`)
           delete PeerConnection.peers[this.peer.channelName]
         })
 
