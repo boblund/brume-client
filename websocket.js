@@ -1,32 +1,34 @@
 "use strict";
 
-const log = require('./logger.js')
-
 function createWebsocket(url, name, token) {
+  const log = require('./logger.js')
+        ,errorCodeMessages = {
+          400: 'Missing token'
+          ,401: 'Unauthorized'
+          ,404: 'unknown member: ' + name
+          ,406: 'Bad token'
+          ,409: name + ' already connected'
+          ,500: 'Server error'
+          ,501: 'Server error'
+        }
+
   return new Promise((resolve, reject) => {
     var ws
 
     ws = new (require('ws'))(url, {headers : { token: token}});
     ws._id_ = Math.random().toString(36).slice(2)
 
-    const sendMsg = message => {
+    ws.sendMsg = message => {
       ws.send(JSON.stringify(message));
     }
-
-    function login() {
-      sendMsg({
-        action: 'login',
-        username: name
-      });  
-    }
-
-    ws.sendMsg = sendMsg;
 
     ws.onopen = () => {
       resolve(ws)
     }
 
     ws.on('error', err => {
+      //let [messgae, code] = err.split(': ')
+      //if(message == 'Unexpected server response' && code != undefined)
       let code = ''
       if(err.code) {
         if(err.code == 'ECONNREFUSED') {
@@ -43,7 +45,7 @@ function createWebsocket(url, name, token) {
       if(code == 401) {
         log.info('reauthorize')
       } else {
-        log.error(err.message)
+        log.error('Websocket server error: ', code, errorCodeMessages[code])
       }
       process.exit(1)
     })
@@ -51,11 +53,11 @@ function createWebsocket(url, name, token) {
     ws.on('close', m => {
       ws.emit('serverclose', m)
     })
-
+/*
     ws.on('unexpected-response', m => {
       log.warn('unexpected-response', m)
     })
-
+*/
     ws.onmessage = msg => {
       const data = JSON.parse(msg.data)
 
