@@ -45,10 +45,14 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
 
           // ignore all .dotfiles except user/group/.members
           if(path.match(/(^|[\/])\./)) {
-            if(p.length == 3 && p[2] == '.members' && p[0] == thisUser) {
-              groupInfo.updateMembers(p[0], p[1], cmd.action)
+            if(p.length == 3 && p[2] == '.members') {
+              if(p[0] == thisUser) {
+                groupInfo.updateMembers(p[0], p[1], cmd.action)
+                return
+              }
+            } else {
+              return
             }
-            return
           }
 
           switch(event) {
