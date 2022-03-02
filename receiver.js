@@ -42,7 +42,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
   let {baseDir, thisUser, groupInfo, fileData} = brumeData
 
   function offerProcessor(offer, src) {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve /*, reject*/) => {
       let peerConnection = new PeerConnection('receiver');
       let peer = await (peerConnection.open)(src, offer)
 
@@ -193,54 +193,40 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 
                 let fileParts =  basename(cmd.file).split('.')
                 resp = {type: 'SUCCESS', cmd: cmd}
-
-                if(thisUser == owner) {
-                  // Member add/change to owner
-                  let error = null
-
-                  if(cmd.action == 'add' && fileData.get(cmd.file)) {
-                    error = 'CONFLICT-add'                                
-                  } else if(cmd.action == 'change' && cmd.mvFile == undefined) {
-                    let mod = fileData.get(cmd.file).mod
-                    if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
-                      error = 'CONFLICT-change'
-                    }                
-                  }
-
-                  if(error != null) {
-                    //  Save errored file and replace with valid version from owner
-                    eventQueue.push({
-                      action: 'change', file: cmd.file ,mvFile: cmd.file + '-' + error, dest: src
-                      ,pmod: fileData.get(cmd.file).mod, mod: fileData.get(cmd.file).mod
-                    })                    
+                let error = null
+                
+                if(cmd.action == 'add' && fileData.get(cmd.file)) {
+                  error = 'CONFLICT-add'                                
+                } else if(cmd.action == 'change' && cmd.mvFile == undefined) {
+                  let mod = fileData.get(cmd.file).mod
+                  if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
+                    error = 'CONFLICT-change'
+                  }                
+                }
+                
+                if(error != null) {
+                  if(src == owner) {   // Owner add/change to member
+                    // Owner or member to member treated the same. If conflict, cp member file to CONFLICT-
+                    // and replace with sent file
+                    // Copy errored file, report error but keep going with add/change
+                    fs.copyFileSync(baseDir+cmd.file, baseDir+cmd.file + '-' + error)                  
+                    resp = {type: 'ERROR', error: {code: error, message: ''}}                 
+                  } else {
+                    if(thisUser == owner) {   // Member add/change to owner
+                      //  Sending member should save errored file and replace with valid version from owner
+                      eventQueue.push({
+                        action: 'change', file: cmd.file ,mvFile: cmd.file + '-' + error, dest: src
+                        ,pmod: fileData.get(cmd.file).mod, mod: fileData.get(cmd.file).mod
+                      })
+                    }
+                    // Do not save errored add/change from member
                     peer.send(JSON.stringify({type: 'ERROR', error: {code: error, message: ''}}));
                     peer.destroy();
-                    log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', resp.type
-                      , resp.error ? resp.error : '')
+                    log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', 'ERROR', error)
                     resolve();
                     return
                   }
-                } else {
-                  // Owner or member to member treated the same. If conflict, cp member file to CONFLICT-
-                  // and replace with sent file
-                  let error = null
-
-                  if(cmd.action == 'add' && fileData.get(cmd.file)) {
-                    error = 'CONFLICT-add'                                
-                  } else if(cmd.action == 'change' && cmd.mvFile == undefined) {
-                    let mod = fileData.get(cmd.file).mod
-                    if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
-                      error = 'CONFLICT-change'
-                    }                
-                  }
-
-                  if(error != null) {
-                    // Copy errored file, report error but keep going with add/change
-                    fs.copyFileSync(baseDir+cmd.file, baseDir+cmd.file + '-' + error)                  
-                    resp = {type: 'ERROR', error: {code: error, message: ''}}
-                  }                  
                 }
-
                 var outStream;
                 try {
                   if(cmd.action == 'add') {
@@ -255,7 +241,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                   log.error('receiver: add/change error', e.message)
                   peer.destroy()
                   log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', ERROR, e)
-                  reject()
+                  resolve() //reject()
                   return
                 }
 
@@ -276,6 +262,8 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 
               default:
                 log.info('receiver:   ', cmd.action, src, 'ERROR unknown action')
+                // return error to sender
+                // resolve
                 peer.destroy()
                 break            
             }
