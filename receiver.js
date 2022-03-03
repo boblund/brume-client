@@ -203,16 +203,16 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                     error = 'CONFLICT-change'
                   }                
                 }
-                
+/*                
                 if(error != null) {
                   if(src == owner) {   // Owner add/change to member
                     // Owner or member to member treated the same. If conflict, cp member file to CONFLICT-
                     // and replace with sent file
                     // Copy errored file, report error but keep going with add/change
-                    fs.copyFileSync(baseDir+cmd.file, baseDir+cmd.file + '-' + error)                  
+                    fs.copyFileSync(baseDir+cmd.file, baseDir+cmd.file + '-' + error)
                     resp = {type: 'ERROR', error: {code: error, message: ''}}                 
                   } else {
-                    if(thisUser == owner) {   // Member add/change to owner
+                    if(thisUser == owner) {   // Member add/change to owner DON'T DO THIS? OWNER CHANGE CONFLICT WILL ALWAYS HAPPEN?
                       //  Sending member should save errored file and replace with valid version from owner
                       eventQueue.push({
                         action: 'change', file: cmd.file ,mvFile: cmd.file + '-' + error, dest: src
@@ -227,6 +227,22 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                     return
                   }
                 }
+*/
+                if(error != null) {
+                  if(thisUser == owner) {
+                    //  Sending member should save errored file and replace with valid version from owner
+                    eventQueue.push({
+                      action: 'change', file: cmd.file ,mvFile: cmd.file + '-' + error, dest: src
+                      ,pmod: fileData.get(cmd.file).mod, mod: fileData.get(cmd.file).mod
+                    })
+                  }
+                  peer.send(JSON.stringify({type: 'ERROR', error: {code: error, message: ''}}));
+                  peer.destroy();
+                  log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', 'ERROR', error)
+                  resolve();
+                  return
+                }
+
                 var outStream;
                 try {
                   if(cmd.action == 'add') {
