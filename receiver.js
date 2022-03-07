@@ -60,7 +60,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
             cmd = JSON.parse(data.toString())
             resp = {type: 'SUCCESS', cmd: cmd}
           } catch(e) {
-            resp = brumeError(e.code, e.message)
+            resp = brumeError('EJSONPARSE', e.message)
             break process
           }
 

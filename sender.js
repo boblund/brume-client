@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require('./logger.js')
+      ,fs = require('fs')
 
 //function sender({PeerConnection, baseDir, groupInfo, thisUser}) {
   function sender({PeerConnection, eventQueue, brumeData}) {
@@ -174,9 +175,10 @@ const log = require('./logger.js')
       } catch (e) {
         e.cmd = e.cmd ? e.cmd : qEntry
         log.info('sender:   ', e.cmd.action ? e.cmd.action : e.cmd, dest,  e.cmd.file ? e.cmd.file : '', e.code)
-        if(errorHandler(e) == 'BREAK'){
-          //group owner of file event not connected. stop sending to any members
-          break
+        if( errorHandler(e) == 'BREAK'
+            && ['add', 'change', 'unlink'].includes(e.cmd.action) //file update potentially to group
+            && dest == e.cmd.file.split('/')[0]) {              //response from group owner
+              break                                               //stop updating group members
         }
       }
     }
