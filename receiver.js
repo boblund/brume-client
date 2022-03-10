@@ -53,7 +53,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
       var resp = null 
 
       peer.once('data', async data => {
-        let cmd = null, pathParts = null, owner = null, group = null
+        let cmd, fileOwner, fileGroup, filePath
         process:
         {
           try {
@@ -67,18 +67,6 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
           log.info('receiver:')
           log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
           log.debug('receiver:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
-/*          if(cmd.action == 'sync') {
-            [owner, group] = [thisUser, cmd.group]
-          } else if(cmd.action == 'syncReq') {
-            [owner, group] = [src, cmd.group]
-          } else if(['add', 'change', 'unlink'].includes(cmd.action)){
-            [owner, group,] = pathParts = cmd.file.split('/')
-          }
-            
-          if(!groupInfo.memberOf(owner, group)){
-            log.warn('receiver:    not member of', owner+'/'+group)
-            break process
-          }*/
 
           let owner, member, group, isMember
           switch(cmd.action) {
@@ -91,10 +79,11 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
               break
       
             default:
-              pathParts = cmd.file.split('/')
-              ;[owner, member, group, isMember] = thisUser == cmd.file.split('/')[0]
-                ? [thisUser, src, cmd.file.split('/')[1], groupInfo.getMembers(thisUser, cmd.file.split('/')[1]).includes(src)]
-                : [src, thisUser, cmd.file.split('/')[1], groupInfo.memberOf(src, cmd.file.split('/')[1])]
+              ;[fileOwner, fileGroup, ...filePath ] = cmd.file.split('/')
+              filePath = filePath.join('/')
+              ;[owner, member, group, isMember] = thisUser == fileOwner
+                ? [thisUser, src, fileGroup, groupInfo.getMembers(thisUser, fileGroup).includes(src)]
+                : [src, thisUser, fileGroup, groupInfo.memberOf(src, fileGroup)]
           }
       
           if(!isMember) {
@@ -108,11 +97,6 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
               if(groupInfo.memberStatus(src) == 'notconnected') {
                 groupInfo.memberStatus(src, 'active')
               }
-
-  /*            if(!(groupInfo.getMembers(thisUser, cmd.group).includes(src))){
-                resp = brumeError('ENOTMEMBER', src+' not member of '+ group)
-                break
-              }*/
 
               let memberFiles = Object.keys(cmd.files)
               let ownerFiles = Object.keys(fileData.grpFiles(thisUser, cmd.group))
@@ -161,12 +145,12 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
             case 'unlink':
               let unlink = true
 
-              if(pathParts[2] == '.members') {
-                if(pathParts[0] == thisUser) {
+              if(filePath == '.members') {
+                if(fileOwner == thisUser) {
                   // Sent to owner, do not remove local .members
                   groupInfo.updateMembers(thisUser, group, 'unlink', src)
                   unlink = false 
-                } else if(pathParts[0] != src) {
+                } else if(fileOwner != src) {
                   // Sender not owner
                   resp = brumeError('EUNLINK', src + ' cannot unlink ' + cmd.file)
                   unlink = false
@@ -176,9 +160,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
               if(unlink){
                 networkEvents.add(cmd)
                 try {
-                  let base, path
-                  [, base, path] = cmd.file.match(/(.*?)\/(.*)/)
-                  rmPath(path, join(baseDir, base))
+                  rmPath(join(fileGroup, filePath), join(baseDir, fileOwner))
                 } catch (err) {
                   resp = brumeError('ERMPATH', 'cannot unlink ' + cmd.file)
                   log.error(`receiver: unlink error ${err}`)
@@ -193,7 +175,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
             case 'add':
             case 'change':
               // Only owner can change or add .members
-              if(pathParts[2] == '.members' && pathParts[0] != src) {
+              if(filePath == '.members' && fileOwner != src) {
                 resp = brumeError('NOTALLOWED', src + ' not owner')
                 log.error('receiver:   ', cmd.action, src, resp.error.code)
                 break
@@ -210,7 +192,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                 error = 'CONFLICT-add'                                
               } else if(cmd.action == 'change' && cmd.mvFile == undefined) {
                 let mod = fileData.get(cmd.file).mod
-                if(pathParts[2] != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
+                if(filePath != '.members' && (!cmd.sync && mod != cmd.pmod || mod > cmd.mod)) {
                   error = 'CONFLICT-change'
                 }                
               }
