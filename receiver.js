@@ -67,7 +67,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
           log.info('receiver:')
           log.info('receiver:   ', cmd.action, src, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
           log.debug('receiver:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '', cmd.mvFile ? cmd.mvFile : '')
-          if(cmd.action == 'sync') {
+/*          if(cmd.action == 'sync') {
             [owner, group] = [thisUser, cmd.group]
           } else if(cmd.action == 'syncReq') {
             [owner, group] = [src, cmd.group]
@@ -78,6 +78,29 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
           if(!groupInfo.memberOf(owner, group)){
             log.warn('receiver:    not member of', owner+'/'+group)
             break process
+          }*/
+
+          let owner, member, group, isMember
+          switch(cmd.action) {
+            case 'sync':
+              ;[owner, member, group, isMember] =  [thisUser, src, cmd.group, groupInfo.getMembers(thisUser, cmd.group).includes(src)]
+              break
+      
+            case 'syncReq':
+              ;[owner, member, group, isMember] =  [src, thisUser, cmd.group, groupInfo.memberOf(src, cmd.group)]
+              break
+      
+            default:
+              pathParts = cmd.file.split('/')
+              ;[owner, member, group, isMember] = thisUser == cmd.file.split('/')[0]
+                ? [thisUser, src, cmd.file.split('/')[1], groupInfo.getMembers(thisUser, cmd.file.split('/')[1]).includes(src)]
+                : [src, thisUser, cmd.file.split('/')[1], groupInfo.memberOf(src, cmd.file.split('/')[1])]
+          }
+      
+          if(!isMember) {
+            resp = brumeError('ENOTMEMBER',`${cmd.action} ${member} not member of ${owner}/${group}`)
+            log.warn('receiver:    not member of', owner+'/'+group)
+            break process
           }
 
           switch(cmd.action) {
@@ -86,10 +109,10 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
                 groupInfo.memberStatus(src, 'active')
               }
 
-              if(!(groupInfo.getMembers(thisUser, cmd.group).includes(src))){
+  /*            if(!(groupInfo.getMembers(thisUser, cmd.group).includes(src))){
                 resp = brumeError('ENOTMEMBER', src+' not member of '+ group)
                 break
-              }
+              }*/
 
               let memberFiles = Object.keys(cmd.files)
               let ownerFiles = Object.keys(fileData.grpFiles(thisUser, cmd.group))

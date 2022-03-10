@@ -3,7 +3,6 @@
 const log = require('./logger.js')
       ,fs = require('fs')
 
-//function sender({PeerConnection, baseDir, groupInfo, thisUser}) {
   function sender({PeerConnection, eventQueue, brumeData}) {
     let {baseDir, groupInfo, thisUser} = brumeData
     
@@ -12,52 +11,42 @@ const log = require('./logger.js')
   
       case 'CONFLICT-add':
       case 'CONFLICT-change':
-        // Error updating owner. Should never happen
-        // Get of updates to other members
+        // Error updating owner. Stop updates to other members
         return 'BREAK'
   
       case 'ENODEST':
-        groupInfo.memberStatus(err.peerName, 'notconnected')
-        //log.warn(`user ${err.peerName} not connected`)
-        if(['add', 'change', 'unlink'].includes(err.cmd.action) && err.cmd.file.split('/')[0] == err.peerName) {
-          // File cmd sent to group owner failed because owner not connected.
-          // Queue for retry when owner comes back and abort cmd for any remaining group members
-          try {
-            fs.writeFileSync(baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
-          } catch (e) {
-            log.error(`eventQueue: error writing .retryOnSync ${e.message}`)
+        log.warn(`sender:    ${err.peerName} not connected`)
+        if(['add', 'change', 'unlink'].includes(err.cmd.action)) {
+          let fileOwner = err.cmd.file.split('/')[0]
+          if(fileOwner == err.peerName || fileOwner == thisUser) {
+            groupInfo.memberStatus(err.peerName, 'notconnected')
+          
+            if(fileOwner == err.peerName) {
+              // File cmd sent to group owner failed because owner not connected.
+              // Queue for retry when owner comes back and abort cmd for any remaining group members
+              try {
+                fs.writeFileSync(baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
+              } catch (e) {
+                log.error(`eventQueue: error writing .retryOnSync ${e.message}`)
+              }
+            }
+            return 'BREAK'
+          } else {
+            return null
           }
+        } else {
+          groupInfo.memberStatus(err.peerName, 'notconnected')
+          return null
         }
-        return 'BREAK'
   
       case 'EBADDEST':
         groupInfo.memberStatus(err.peerName, 'notconnected')
-        log.warn(`eventQueue: ${err.peerName} not Brume user\n`)
+        log.warn(`eventQueue: ${err.peerName} not Brume user`)
         break
         
       case 'ENOTMEMBER':
-        groupInfo.memberStatus(err.peerName, 'notconnected')
-        //syncReq err.peerName || err.cmd.dest, brume.thisUser, err.cmd.group
-        //change err.peerName, err,cmd.file.split('/')[0]/[1]
-        let user, group
-  
-        switch(err.cmd.action) {
-          case 'syncReq':
-            user = err.cmd.dest
-            group = thisUser + '/' + err.cmd.group
-            break
-  
-          case 'sync':
-            user = thisUser
-            group = err.cmd.dest + '/' + err.cmd.group
-            break
-  
-          default:
-            user = thisUser
-            group = err.cmd.file.match(/(^.*?\/.*?)\/.*/)[1]
-        }
-  
-        log.warn('eventQueue: '+ user + ' not member of ' + group)
+        //groupInfo.memberStatus(err.peerName, 'notconnected') only if applied to group
+        log.warn('eventQueue:   ', err.message)
         break
   
       default:
@@ -84,13 +73,13 @@ const log = require('./logger.js')
             }*/
             resolve(result)
           } else {
-            //reject(result)
-            reject({
-              code: result.error.code   //ENOTMEMBER
+            reject(result.error)
+            /*reject({
+              code: result.error.code
               , peerName: dest
               , channelName: peer.channelName
               , cmd: cmd
-            })
+            })*/
           }
         })
 
@@ -175,10 +164,8 @@ const log = require('./logger.js')
       } catch (e) {
         e.cmd = e.cmd ? e.cmd : qEntry
         log.info('sender:   ', e.cmd.action ? e.cmd.action : e.cmd, dest,  e.cmd.file ? e.cmd.file : '', e.code)
-        if( errorHandler(e) == 'BREAK'
-            && ['add', 'change', 'unlink'].includes(e.cmd.action) //file update potentially to group
-            && dest == e.cmd.file.split('/')[0]) {              //response from group owner
-              break                                               //stop updating group members
+        if( errorHandler(e) == 'BREAK') {
+          break //stop updating group members
         }
       }
     }

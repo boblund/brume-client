@@ -55,7 +55,7 @@ function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
   };
 
   this.memberOf = (owner, group) => {
-      return groupData[owner] && groupData[owner][group]
+      return groupData[owner] != undefined && groupData[owner][group] != undefined
   }
 
   this.rmGroup = (member, group) => {
