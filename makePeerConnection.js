@@ -1,10 +1,20 @@
 "use strict";
 
-var SimplePeer = require('simple-peer')
+const SimplePeer = require('simple-peer')
     , wrtc = require('wrtc')
     ,log = require('./logger.js')
-    //, createWebsocket = require('./websocket.js')
-;
+    ,sendWait = 10 * 1000  //10 seconds
+
+function sendTimeout(peer, action) {
+  log.info(`${peer.type} ${peer.channelName}: ${action} ${peer.peerName} sendTimer`)
+  peer.sendTimer = setTimeout(
+    function() {
+      log.warn(`${peer.type} ${peer.channelName}: ${action} timeout`)
+      peer.destroy()
+    }
+    ,sendWait
+  )
+}
 
 function createPeer(type) {
   var peerOptions = {
@@ -36,22 +46,25 @@ class PeerConnection {
   static peers = {}
   static offerProcessor
   static myName
-  #type = null
+  type = null
   peer = null
  
   constructor(type) {
-    this.#type = type
+    PeerConnection.type = type
+    this.type = type
   }
 
   open(peerName, offer) {
     return new Promise((resolve, reject) => {
       // should creating a peer be moved after the offer is accepted? 
-      this.peer = createPeer(this.#type);
+      this.peer = createPeer(this.type);
+      this.peer.type = this.type
+      this.peer.peerName = peerName
 
-      if(this.#type == 'sender'){
+      if(this.type == 'sender'){
         PeerConnection.peers[this.peer.channelName] = this
       }
-      if(this.#type == 'receiver') {
+      if(this.type == 'receiver') {
         if(offer) {
           this.peer.channelName = offer.channelName;
           PeerConnection.peers[offer.channelName] = this
@@ -66,6 +79,7 @@ class PeerConnection {
           data.channelName = this.peer.channelName
           PeerConnection.signallingServer.sendMsg(
             {action: 'send', data: data, to: peerName})
+          sendTimeout(this.peer, 'offer')
         });
 
         this.peer.on('answer', data => {
@@ -73,17 +87,19 @@ class PeerConnection {
           try {
             PeerConnection.signallingServer.sendMsg(
               {action: 'send', data: data, to: peerName})
+            sendTimeout(this.peer, 'answer')
           } catch(e) {
             log.error('send answer error', data.channelName, e.code)
           }
         });
 
         this.peer.on('connect', () => {
+          clearTimeout(this.peer.sendTimer)
           resolve(this.peer)
         })
 
         this.peer.on('close', () => {
-          log.debug(`${this.#type}:    ${this.peer.channelName} peer close`)
+          log.info(`${this.type} ${this.peer.channelName}: peer close`)
           delete PeerConnection.peers[this.peer.channelName]
         })
 
@@ -106,8 +122,9 @@ function makePeerConnection(ws, name) {
   PeerConnection.signallingServer.on('answer', (data) => {
     if(PeerConnection.peers[data.data.channelName]) {
       PeerConnection.peers[data.data.channelName].peer.signal(data.data)
+      clearTimeout(PeerConnection.peers[data.data.channelName].peer.sendTimer)
     } else {
-      log.error('peerConnection: no peer for %s', data.from)
+      log.error(`${PeerConnection.type} answer: no peer for ${data.from}`)
     }
   })
 

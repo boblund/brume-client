@@ -2,11 +2,23 @@
 
 const log = require('./logger.js')
       ,fs = require('fs')
+      ,sendWait = 10 * 1000  //10 seconds
 
-  function sender({PeerConnection, eventQueue, brumeData}) {
+function sendTimeout(peer) {
+  log.info(`sender ${peer.channelName}: peer.send sendTimer`)
+  peer.sendTimer = setTimeout(
+    function() {
+      log.warn(`sender:    peer.send on ${peer.channelName} timeout`)
+      peer.destroy()
+    }
+    ,sendWait
+  )
+}
+
+function sender({PeerConnection, eventQueue, brumeData}) {
     let {baseDir, groupInfo, thisUser} = brumeData
     
-    function errorHandler(err) {
+  function errorHandler(err) {
     switch(err.code) {
   
       case 'CONFLICT-add':
@@ -61,16 +73,15 @@ const log = require('./logger.js')
           peer = null;
       try {
         peer = await peerConnection.open(dest)
-        log.debug('doCommand:    ', peer.channelName, cmd.action, cmd.file ? cmd.file : '')
+        log.info(`sender ${peer.channelName}: ${cmd.action} ${dest} ${cmd.group != undefined ? cmd.group : ''}`
+          + ` ${cmd.file != undefined ? cmd.file : ''}`)
 
         peer.on('data', (data) => {
+          clearTimeout(peer.sendTimer)
           let result = JSON.parse(data.toString())
           if(result.type == 'SUCCESS') {
-            /*if(cmd.action == 'sync') {
-              for(let file of result.syncedFiles) {
-                fileData.setSync(file, true)
-              }
-            }*/
+            log.info(`sender ${peer.channelName}: ${result.cmd.action ? result.cmd.action : result.cmd} ${dest}`
+              + ` ${result.cmd.file ? result.cmd.file : ''} ${result.type}`)
             resolve(result)
           } else {
             reject(result.error)
@@ -100,6 +111,7 @@ const log = require('./logger.js')
           case 'syncReq':
           case 'rename':
             peer.send(JSON.stringify(cmd));
+            sendTimeout(peer)
             break;
 
           case 'change':
@@ -110,6 +122,7 @@ const log = require('./logger.js')
               // End of Stream mark required by receiver. This can be changed
               // as long as sender and receiver use the same code
               peer.send('\u0005');
+              sendTimeout(peer)
             })
             peer.send(JSON.stringify(cmd));
             inStream.pipe(peer, {end: false});
@@ -156,11 +169,7 @@ const log = require('./logger.js')
     for(let dest of dests.filter(m => groupInfo.memberStatus(m) == 'active')) {
       let result
       try {
-        log.info('sender:')
-        log.info('sender:   ', qEntry.action, dest,
-          qEntry.group != undefined ? qEntry.group : '', qEntry.file != undefined ? qEntry.file : '')
         result = await doCommand(dest, qEntry)
-        log.info('sender:   ', result.cmd.action ? result.cmd.action : result.cmd, dest, result.cmd.file ? result.cmd.file : '', result.type)
       } catch (e) {
         e.cmd = e.cmd ? e.cmd : qEntry
         log.info('sender:   ', e.cmd.action ? e.cmd.action : e.cmd, dest,  e.cmd.file ? e.cmd.file : '', e.code)
