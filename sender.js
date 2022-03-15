@@ -8,7 +8,7 @@ function sendTimeout(peer) {
   log.info(`sender ${peer.channelName}: peer.send sendTimer`)
   peer.sendTimer = setTimeout(
     function() {
-      log.warn(`sender:    peer.send on ${peer.channelName} timeout`)
+      log.warn(`sender ${peer.channelName}: peer.send timeout`)
       peer.destroy()
     }
     ,sendWait
@@ -27,7 +27,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         return 'BREAK'
   
       case 'ENODEST':
-        log.warn(`sender:    ${err.peerName} not connected`)
+        log.warn(`sender ${err.channelName}: ${err.peerName} not connected`)
         if(['add', 'change', 'unlink'].includes(err.cmd.action)) {
           let fileOwner = err.cmd.file.split('/')[0]
           if(fileOwner == err.peerName || fileOwner == thisUser) {
@@ -99,7 +99,8 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         })
 
         peer.on('error', e => {
-          log.error(`sender peer ${dest} error`);
+          clearTimeout(peer.sendTimer)
+          log.error(`sender ${peer.channelName} peer ${dest} error`);
           peer.destroy()
           reject(e)
         })
@@ -172,7 +173,8 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         result = await doCommand(dest, qEntry)
       } catch (e) {
         e.cmd = e.cmd ? e.cmd : qEntry
-        log.info('sender:   ', e.cmd.action ? e.cmd.action : e.cmd, dest,  e.cmd.file ? e.cmd.file : '', e.code)
+        log.info(`sender ${e.channelName}: ${e.cmd.action ? e.cmd.action : e.cmd} ${dest}`
+          + ` ${e.cmd.file ? e.cmd.file : ''} ${e.code}`)
         if( errorHandler(e) == 'BREAK') {
           break //stop updating group members
         }
