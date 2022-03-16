@@ -9,8 +9,9 @@ function sendTimeout(peer, action) {
   log.info(`${peer.type} ${peer.channelName}: ${action} ${peer.peerName} sendTimer`)
   peer.sendTimer = setTimeout(
     function() {
-      log.warn(`${peer.type} ${peer.channelName}: ${action} timeout`)
-      peer.destroy()
+      //log.warn(`${peer.type} ${peer.channelName}: ${action} timeout`)
+      //peer.destroy()
+      peer.emit('error', {code: 'ETIMEOUT', channelName: peer.channelName,  message: `${peer.type} ${action} timeout`})
     }
     ,sendWait
   )
@@ -99,6 +100,7 @@ class PeerConnection {
         })
 
         this.peer.on('close', () => {
+          clearTimeout(this.peer.sendTimer)
           log.info(`${this.type} ${this.peer.channelName}: peer close`)
           delete PeerConnection.peers[this.peer.channelName]
         })
@@ -121,8 +123,8 @@ function makePeerConnection(ws, name) {
   
   PeerConnection.signallingServer.on('answer', (data) => {
     if(PeerConnection.peers[data.data.channelName]) {
-      PeerConnection.peers[data.data.channelName].peer.signal(data.data)
       clearTimeout(PeerConnection.peers[data.data.channelName].peer.sendTimer)
+      PeerConnection.peers[data.data.channelName].peer.signal(data.data)
     } else {
       log.error(`${PeerConnection.type} answer: no peer for ${data.from}`)
     }
@@ -133,7 +135,11 @@ function makePeerConnection(ws, name) {
   })
 
   PeerConnection.signallingServer.on('offer', async (data) => {
-    await PeerConnection.offerProcessor(data.data, data.from);
+    try{
+      await PeerConnection.offerProcessor(data.data, data.from);
+    } catch(e){
+      log.error(`reeiver: offer error from ${data.from} ${e.code} ${e.message}`)
+    }
   })
 
   return PeerConnection

@@ -46,9 +46,18 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
   let {baseDir, thisUser, groupInfo, fileData} = brumeData
 
   function offerProcessor(offer, src) {
-    return new Promise(async (resolve /*, reject*/) => {
-      let peerConnection = new PeerConnection('receiver');
-      let peer = await (peerConnection.open)(src, offer) //TRY CATCH
+    return new Promise(async (resolve , reject) => {
+      let peerConnection = new PeerConnection('receiver')
+          ,peer
+
+      try {
+        peer = await (peerConnection.open)(src, offer)
+      } catch(e) {
+        e.peer.destroy()
+        //if(peer != undefined) peer.destroy()
+        reject(e)
+        return
+      }
   
       var resp = null 
 

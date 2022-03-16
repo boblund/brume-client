@@ -8,8 +8,10 @@ function sendTimeout(peer) {
   log.info(`sender ${peer.channelName}: peer.send sendTimer`)
   peer.sendTimer = setTimeout(
     function() {
-      log.warn(`sender ${peer.channelName}: peer.send timeout`)
-      peer.destroy()
+      //log.warn(`sender ${peer.channelName}: peer.send timeout`)
+      //peer.destroy()
+      //peer.emit('timeout', `sender ${peer.channelName}: peer.send timeout`)
+      peer.emit('timeout', {code: 'ETIMEOUT', channelName: peer.channelName,  message: 'peer.send timeout'})
     }
     ,sendWait
   )
@@ -60,6 +62,9 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         //groupInfo.memberStatus(err.peerName, 'notconnected') only if applied to group
         log.warn('eventQueue:   ', err.message)
         break
+
+      case 'ETIMEOUT':
+        break
   
       default:
         log.error('eventQueue: unknown error:', err);
@@ -95,12 +100,19 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         })
 
         peer.on('close', () => {
+          clearTimeout(peer.sendTimer)
           //log.debug(`sender peer ${dest} close\n`);
         })
 
         peer.on('error', e => {
           clearTimeout(peer.sendTimer)
           log.error(`sender ${peer.channelName} peer ${dest} error`);
+          peer.destroy()
+          reject(e)
+        })
+
+        peer.on('timeout', e => {
+          //log.warn(e)
           peer.destroy()
           reject(e)
         })
@@ -135,6 +147,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         //resolve()    
       } catch (err) {
           if(err.peer) {
+            //err.channelName = err.peer.channelName
             err.peer.destroy() 
             delete err.peer
           }
@@ -174,7 +187,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
       } catch (e) {
         e.cmd = e.cmd ? e.cmd : qEntry
         log.info(`sender ${e.channelName}: ${e.cmd.action ? e.cmd.action : e.cmd} ${dest}`
-          + ` ${e.cmd.file ? e.cmd.file : ''} ${e.code}`)
+          + ` ${e.cmd.file ? e.cmd.file : ''} ${e.code}  ${e.message == undefined ? '' : e.message}`)
         if( errorHandler(e) == 'BREAK') {
           break //stop updating group members
         }
