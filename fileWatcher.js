@@ -59,15 +59,16 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
             case 'add':
             case 'change':
               if(networkEvents.remove(cmd) == -1) {
+                let mod = statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
+                fileData.set(cmd.file, {mod: mod})
                 if(p[2] == '.members' && p[0] != thisUser) {
-                  // member cannot add or change
-                  return
+                  // member cannot add or change. Resync
+                  cmd = {action: 'sync', dest: p[0], group: p[1], files: fileData.grpFiles(p[0], p[1])}
+                } else {
+                  cmd.pmod = event == 'change' ? fileData.get(path).mod : 0
+                  cmd.mod = mod
                 }
 
-                cmd.pmod = event == 'change' ? fileData.get(path).mod : 0
-                cmd.mod = statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
-                fileData.set(cmd.file, {mod: cmd.mod})
-                //fileData.setSync(cmd.file, false)
                 eventQueue.push(cmd)
               } else {
                 log.info('fileWatcher:    networkEvent', event, path)
