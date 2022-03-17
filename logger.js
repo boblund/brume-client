@@ -9,7 +9,11 @@ var {currLevel, timestamp} = optionsDefaults
 
 function log(level, ...args){
 	if(level <= currLevel) {
-		if(timestamp) process.stdout.write(new Date().toISOString() + ' ')
+		if(timestamp) {
+			let d = new Date()
+  		process.stdout.write(`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`
+    		+ ` ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()} `)
+		}
 		console.log(`[${strings[level]}]`, ...args)
 	}
 }
