@@ -32,7 +32,7 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
       groupInfo.sync()
       watcher
         .removeListener('add', initAddHandler)
-        .on('all', async (event, path) => {
+        .on('all', async (event, path, stats) => {
           log.debug('fileWatcher:    ', event, path)
           if(utimesEvents.remove({action: event, file: path}) > -1) {
             log.debug('fileWatcher:    utimesEvent', event, path)
@@ -59,7 +59,7 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
             case 'change':
               if(networkEvents.remove(cmd) == -1) {
                 cmd.pmod = event == 'change' ? fileData.get(path).mod : 0
-                let mod = statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
+                let mod = stats.mtime.toISOString()
                 cmd.mod = mod
                 fileData.set(cmd.file, {mod: mod})
 

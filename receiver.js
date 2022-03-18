@@ -74,7 +74,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
           }
 
           log.info(`receiver ${peer.channelName}: ${cmd.action} ${src}`
-            + `${cmd.file ? cmd.file : ''} ${cmd.mvFile ? cmd.mvFile : ''}`)
+            + ` ${cmd.file ? cmd.file : ''} ${cmd.mvFile ? cmd.mvFile : ''}`)
 
           let owner, member, group, isMember
           switch(cmd.action) {
