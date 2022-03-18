@@ -6,7 +6,7 @@ const SimplePeer = require('simple-peer')
     ,sendWait = 10 * 1000  //10 seconds
 
 function sendTimeout(peer, action) {
-  log.info(`${peer.type} ${peer.channelName}: ${action} ${peer.peerName} sendTimer`)
+  log.debug(`${peer.type} ${peer.channelName}: ${action} ${peer.peerName} sendTimer`)
   peer.sendTimer = setTimeout(
     function() {
       //log.warn(`${peer.type} ${peer.channelName}: ${action} timeout`)
@@ -101,7 +101,7 @@ class PeerConnection {
 
         this.peer.on('close', () => {
           clearTimeout(this.peer.sendTimer)
-          log.info(`${this.type} ${this.peer.channelName}: peer close`)
+          log.debug(`${this.type} ${this.peer.channelName}: peer close`)
           delete PeerConnection.peers[this.peer.channelName]
         })
 

@@ -5,7 +5,7 @@ const log = require('./logger.js')
       ,sendWait = 10 * 1000  //10 seconds
 
 function sendTimeout(peer) {
-  log.info(`sender ${peer.channelName}: peer.send sendTimer`)
+  log.debug(`sender ${peer.channelName}: peer.send sendTimer`)
   peer.sendTimer = setTimeout(
     function() {
       //log.warn(`sender ${peer.channelName}: peer.send timeout`)

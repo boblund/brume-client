@@ -33,10 +33,9 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
       watcher
         .removeListener('add', initAddHandler)
         .on('all', async (event, path) => {
-          log.info('fileWatcher:')
-          log.info('fileWatcher:    ', event, path)
+          log.debug('fileWatcher:    ', event, path)
           if(utimesEvents.remove({action: event, file: path}) > -1) {
-            log.info('fileWatcher:    utimesEvent', event, path)
+            log.debug('fileWatcher:    utimesEvent', event, path)
             return
           }
 
@@ -59,19 +58,19 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
             case 'add':
             case 'change':
               if(networkEvents.remove(cmd) == -1) {
+                cmd.pmod = event == 'change' ? fileData.get(path).mod : 0
                 let mod = statSync(join(baseDir, path), {throwIfNoEntry: false}).mtime.toISOString()
+                cmd.mod = mod
                 fileData.set(cmd.file, {mod: mod})
+
                 if(p[2] == '.members' && p[0] != thisUser) {
                   // member cannot add or change. Resync
                   cmd = {action: 'sync', dest: p[0], group: p[1], files: fileData.grpFiles(p[0], p[1])}
-                } else {
-                  cmd.pmod = event == 'change' ? fileData.get(path).mod : 0
-                  cmd.mod = mod
                 }
 
                 eventQueue.push(cmd)
               } else {
-                log.info('fileWatcher:    networkEvent', event, path)
+                log.debug('fileWatcher:    networkEvent', event, path)
 
                 try {
                   utimesEvents.add({action: 'change', file: path})
