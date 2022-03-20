@@ -29,6 +29,20 @@ class FileData extends Map {
   }
 }
 
+// Functions to read/write .members
+
+// handles JSON or white space separated names
+function readDotMembers(p) {
+  let s = readFileSync(p,'utf8').replace(/^\s+/,'')     // Get rid of leading whitespace
+  return s[0] == '[' || s[0] == '{'                     // JSON if 1st char is { or [
+    ? JSON.parse(s)
+    : [...new Set(s.split(/\s+/).filter(e => e!=''))]
+}
+
+function writeDotMembers(p, m) {
+  writeFileSync(p, m.join('\n')+'\n')
+}
+
 //
 // class GroupInfo
 //
@@ -126,13 +140,11 @@ function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
     
     if(member == null) {
       try {
-        newMembers = JSON.parse(readFileSync(p+'/'+group+'/.members'))
+        newMembers = readDotMembers(p+'/'+group+'/.members')
       } catch(e) {
-        if(e.message && e.message.includes('Unexpected token')) {
-          log.error('updateMembers .members JSON.parse error', e.message)
-          // messed up .members; can't tell what to do
-          return
-        }
+        // messed up .members; can't tell what to do
+        log.error(`updateMembers: error reading ${p}/${group}/.members)} ${e.message}`)
+        return
       }
     }
 
@@ -177,9 +189,9 @@ function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
     if(action == 'unlink') {
       try{
         networkEvents.add({action: 'change', file: join(user, group, '.members')})
-        writeFileSync(join(baseDir, user, group, '.members'), JSON.stringify(newMembers))
+        writeDotMembers(join(baseDir, user, group, '.members'), newMembers)
       } catch(e) {
-        log.error('updateMembers .members write error', e.message)
+        log.error(`updateMembers: error writing ${user}/${group}/.members ${e.message}`)
       }                     
     }
   }
@@ -210,10 +222,10 @@ function GroupInfo({baseDir, thisUser, eventQueue, fileData, networkEvents}) {
     for(let group of groups) {
       let members = []
       try {
-        members = JSON.parse(readFileSync(p+'/'+group+'/.members'))
+        members = readDotMembers(p+'/'+group+'/.members')
       } catch(e) {
         if(e.message && e.message.includes('Unexpected token')) {
-          log.eror('GroupInfo JSON.parse error', e.message, 'in', user+'/'+group+'/.members' )
+          log.error(`updateMembers: error reading ${user}/${group}/.members ${e.message}`)
           return
         }
       }
