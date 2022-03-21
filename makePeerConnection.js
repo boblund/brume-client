@@ -10,7 +10,7 @@ SimplePeer.prototype.send = function(chunk) {
   if(this._channel.readyState == 'open') {
     this.Send(chunk)
   } else {
-    log.warn(`${this.type} ${this.channelName}: peer.send channel not open`)
+    log.warn(`${this.type} ${this.channelName}: peer.send readyState == ${this._channel.readyState}`)
   }
 }
 
