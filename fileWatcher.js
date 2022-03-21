@@ -91,7 +91,7 @@ function FileWatcher({brumeData, eventQueue, networkEvents}) {
                 if(filePath == '.members') cmd.dest = fileOwner  // only send unlink .members to group owner
                 if(groupInfo.memberOf(fileOwner, fileGroup)) eventQueue.push(cmd) // only send not group member
               } else {
-                 log.info('fileWatcher:    networkEvent', event, path)
+                 log.debug('fileWatcher:    networkEvent', event, path)
               }
               
               break

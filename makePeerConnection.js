@@ -5,6 +5,15 @@ const SimplePeer = require('simple-peer')
     ,log = require('./logger.js')
     ,sendWait = 10 * 1000  //10 seconds
 
+SimplePeer.prototype.Send = SimplePeer.prototype.send
+SimplePeer.prototype.send = function(chunk) {
+  if(this._channel.readyState == 'open') {
+    this.Send(chunk)
+  } else {
+    log.warn(`${this.type} ${this.channelName}: peer.send channel not open`)
+  }
+}
+
 function sendTimeout(peer, action) {
   log.debug(`${peer.type} ${peer.channelName}: ${action} ${peer.peerName} sendTimer`)
   peer.sendTimer = setTimeout(
