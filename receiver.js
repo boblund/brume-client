@@ -91,7 +91,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
               filePath = filePath.join('/')
               ;[owner, member, group, isMember] = thisUser == fileOwner
                 ? [thisUser, src, fileGroup, groupInfo.getMembers(thisUser, fileGroup).includes(src)]
-                : [src, thisUser, fileGroup, groupInfo.memberOf(src, fileGroup)]
+                : [src, thisUser, fileGroup, groupInfo.memberOf(fileOwner, fileGroup)]
           }
       
           if(!isMember) {
