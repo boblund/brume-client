@@ -63,6 +63,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         log.warn('eventQueue:   ', err.message)
         break
 
+      case 'ERMPATH':
       case 'ETIMEOUT':
         break
   
