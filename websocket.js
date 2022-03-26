@@ -31,7 +31,7 @@ function createWebsocket(url, name, token) {
       //if(message == 'Unexpected server response' && code != undefined)
       let code = ''
       if(err.code) {
-        if(err.code == 'ECONNREFUSED') {
+        if(err.code == 'ECONNREFUSED' || err.code == 'ENOTFOUND') {
           reject(err)
           return
         } else {
