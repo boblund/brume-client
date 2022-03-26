@@ -1,16 +1,14 @@
 "use strict";
 
-const log = require('./logger.js')
-      ,fs = require('fs')
-      ,sendWait = 10 * 1000  //10 seconds
+const 
+  log = require('./logger.js'),
+  {writeFileSync} = require('fs'),
+  sendWait = 10 * 1000;  //10 seconds
 
 function sendTimeout(peer) {
   log.debug(`sender ${peer.channelName}: peer.send sendTimer`)
   peer.sendTimer = setTimeout(
     function() {
-      //log.warn(`sender ${peer.channelName}: peer.send timeout`)
-      //peer.destroy()
-      //peer.emit('timeout', `sender ${peer.channelName}: peer.send timeout`)
       peer.emit('timeout', {code: 'ETIMEOUT', channelName: peer.channelName,  message: 'peer.send timeout'})
     }
     ,sendWait
@@ -39,7 +37,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
               // File cmd sent to group owner failed because owner not connected.
               // Queue for retry when owner comes back and abort cmd for any remaining group members
               try {
-                fs.writeFileSync(baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
+                writeFileSync(baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
               } catch (e) {
                 log.error(`eventQueue: error writing .retryOnSync ${e.message}`)
               }
@@ -59,7 +57,6 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         break
         
       case 'ENOTMEMBER':
-        //groupInfo.memberStatus(err.peerName, 'notconnected') only if applied to group
         log.warn('eventQueue:   ', err.message)
         break
 
@@ -91,18 +88,11 @@ function sender({PeerConnection, eventQueue, brumeData}) {
             resolve(result)
           } else {
             reject(result.error)
-            /*reject({
-              code: result.error.code
-              , peerName: dest
-              , channelName: peer.channelName
-              , cmd: cmd
-            })*/
           }
         })
 
         peer.on('close', () => {
-          clearTimeout(peer.sendTimer)
-          //log.debug(`sender peer ${dest} close\n`);
+          clearTimeout(peer.sendTimer);
         })
 
         peer.on('error', e => {
@@ -113,9 +103,8 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         })
 
         peer.on('timeout', e => {
-          //log.warn(e)
-          peer.destroy()
-          reject(e)
+          peer.destroy();
+          reject(e);
         })
 
         switch(cmd.action) {
@@ -136,19 +125,17 @@ function sender({PeerConnection, eventQueue, brumeData}) {
               // End of Stream mark required by receiver. This can be changed
               // as long as sender and receiver use the same code
               peer.send('\u0005');
-              sendTimeout(peer)
+              sendTimeout(peer);
             })
             peer.send(JSON.stringify(cmd));
             inStream.pipe(peer, {end: false});
             break;
 
           default:
-            log.error(`sender unknown cmd.action ${cmd.action}`)     
-        }
-        //resolve()    
+            log.error(`sender unknown cmd.action ${cmd.action}`);     
+        }    
       } catch (err) {
           if(err.peer) {
-            //err.channelName = err.peer.channelName
             err.peer.destroy() 
             delete err.peer
           }
@@ -194,11 +181,9 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         }
       }
     }
-    //eventQueue.handlerRunning(false)
   }
   
   return processQ
-  //brume.eventQueue.setCommandProcessor(doCommand)
 }
 
 module.exports=sender
