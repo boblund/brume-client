@@ -31,7 +31,20 @@ try {
 log.setLevel(process.env.LOG != undefined ? process.env.LOG : logLevel != undefined ? logLevel: 'INFO')
 var [addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null]
 port = port ? ':' + port : '';
-var thisUser = jwt.decode(token).username;
+
+const
+	thisUser = jwt.decode(token).username,
+	errorCodeMessages = {
+		400: 'Missing token',
+		401: 'Unauthorized',
+		403: 'unknown member: ' + thisUser,
+		404: 'Server not found',
+		406: 'Bad token',
+		409: thisUser + ' already connected',
+		500: 'Server error',
+		501: 'Server error',
+	};
+
 var fileWatcher = null;
 
 (async function brumeStart() {
@@ -46,39 +59,53 @@ var fileWatcher = null;
 	: url;
 
 	try {
+		ws = await createWebsocket(url, token)
 
-		ws = await createWebsocket(url, thisUser, token)
+    ws.on('serverclose', function() {
+      log.debug('ws server close');
+      clearInterval(pingInterval);
+      ws = null;
+			fileWatcher = null;
+      brumeStart();
+    })
 
-		log.info('connected to ws server ' + url)
-		const pingInterval = setInterval(function ping() { ws.ping(()=>{}) }, 9.8 * 60 * 1000);
+		log.info('connected to Brume server ' + url)
 
-		ws.on('pong', ()=>{
-		 log.debug('ws server: pong')
-		})
-
-		ws.on('serverclose', function(m) {
-			log.info('ws server close')
-			clearInterval(pingInterval)
-			ws = null
-			brumeStart()
-		})
-
-		var
+		const
 			PeerConnection = require('./makePeerConnection.js')(ws, thisUser),
 			eventQueue = new EventQueue(),
 			networkEvents = new NetworkEvents,
 			brumeData = new BrumeData({thisUser, baseDir, eventQueue, networkEvents});
 
-			if(fileWatcher != null) {
-				fileWatcher.close().then(() => log.debug('brume-client:    fileWatcher closed'));
-			}
+		fileWatcher	= new FileWatcher({brumeData, eventQueue, networkEvents});
+		receiver({PeerConnection, brumeData, eventQueue, networkEvents});
+		eventQueue.setCmdProcessor(sender({PeerConnection, eventQueue, brumeData}));
+	} catch (err) {
+		let code = err.code ? err.code : JSON.parse(err.message.match('.*:[ ]+\(.*\)')[1]);
+		switch(code) {
+			case 'ECONNREFUSED':
+			case 'ENOTFOUND':
+				const minutes= 10;
+				log.warn("createWebsocket error:",e.code, ". Retry in", minutes, 'minutes');
+				setTimeout(brumeStart, minutes*60*1000);
+				break;
+		
+			case 401:
+				log.info('reauthorize');
+				// reauthorize rather than exit(1)? user has to reuath with existing token
+				// to AWS every 2 hours so maybe no need to reauth on expired token
+				process.exit(1);
+				break;
+		
+			case 408:
+				log.debug('Brume server:', code, errorCodeMessages[code]);
+				fileWatcher.close().then(() => log.debug('brume-client: fileWatcher closed'));
+				brumeStart();
+				break;
 
-		fileWatcher	= new FileWatcher({brumeData, eventQueue, networkEvents})
-		receiver({PeerConnection, brumeData, eventQueue, networkEvents})
-		eventQueue.setCmdProcessor(sender({PeerConnection, eventQueue, brumeData}))
-	} catch(e) {
-		let minutes= 10
-		log.warn("createWebsocket error:",e.code, ". Retry in", minutes, 'minutes')
-		setTimeout(brumeStart, minutes*60*1000)
+				default:
+				log.error('Brume server error: ', code, errorCodeMessages[code]);
+				process.exit(1)
+		}
 	}
 })()
