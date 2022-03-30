@@ -68,9 +68,9 @@ const initPeerConnection = require('./PeerConnection.js');
 		ws = await createWebsocket(url, token)
 
     ws.on('serverclose', function() {
-      log.debug('ws server close');
+      log.info('ws server close');
       ws = null;
-      brumeStart('serverclose');
+      setTimeout(()=>{brumeStart('serverclose')}, 10*1000);  //give server time to delete closed session
     })
 
 		log.info('connected to Brume server ' + url)
@@ -109,4 +109,3 @@ const initPeerConnection = require('./PeerConnection.js');
 		}
 	}
 })()
-console.log('brumeStart done');

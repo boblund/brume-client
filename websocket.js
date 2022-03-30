@@ -24,7 +24,6 @@ function createWebsocket(url, token) {
     ws.onopen = () => {
       // close can come before ws is set
       ws.on('close', () => {
-        log.error('ws server: close');
         clearInterval(pingInterval);
         ws.emit('serverclose')
       })
