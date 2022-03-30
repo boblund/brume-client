@@ -45,41 +45,47 @@ const
 		501: 'Server error',
 	};
 
-var fileWatcher = null;
+var 
+	fileWatcher = null,
+	PeerConnection;
 
-(async function brumeStart() {
-	var ws
+const initPeerConnection = require('./PeerConnection.js');
 
-	log.info('starting brume-client', thisUser)
-	url = addr
-	? 'ws://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
-			? addr.match(/^\d+\.\d+\.\d+\.\d+/)[0]
-			: await new Promise(res=>{resolve4(addr).then(res).catch(()=>{res(addr)})})
-		) + port
-	: url;
+(async function brumeStart(reason) {
+	var ws;
+
+	if(reason != 'serverclose') {
+		log.info('starting brume-client', thisUser)
+		url = addr
+		? 'ws://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
+				? addr.match(/^\d+\.\d+\.\d+\.\d+/)[0]
+				: await new Promise(res=>{resolve4(addr).then(res).catch(()=>{res(addr)})})
+			) + port
+		: url;
+	}
 
 	try {
 		ws = await createWebsocket(url, token)
 
     ws.on('serverclose', function() {
       log.debug('ws server close');
-      clearInterval(pingInterval);
       ws = null;
-			fileWatcher = null;
-      brumeStart();
+      brumeStart('serverclose');
     })
 
 		log.info('connected to Brume server ' + url)
+		PeerConnection = initPeerConnection(ws, thisUser);
 
-		const
-			PeerConnection = require('./makePeerConnection.js')(ws, thisUser),
-			eventQueue = new EventQueue(),
-			networkEvents = new NetworkEvents,
-			brumeData = new BrumeData({thisUser, baseDir, eventQueue, networkEvents});
+		if(reason != 'serverclose') {
+			const
+				eventQueue = new EventQueue(),
+				networkEvents = new NetworkEvents,
+				brumeData = new BrumeData({thisUser, baseDir, eventQueue, networkEvents});
 
-		fileWatcher	= new FileWatcher({brumeData, eventQueue, networkEvents});
-		receiver({PeerConnection, brumeData, eventQueue, networkEvents});
-		eventQueue.setCmdProcessor(sender({PeerConnection, eventQueue, brumeData}));
+			fileWatcher	= new FileWatcher({brumeData, eventQueue, networkEvents});
+			receiver({PeerConnection, brumeData, eventQueue, networkEvents});
+			eventQueue.setCmdProcessor(sender({PeerConnection, eventQueue, brumeData}));
+		}
 	} catch (err) {
 		let code = err.code ? err.code : JSON.parse(err.message.match('.*:[ ]+\(.*\)')[1]);
 		switch(code) {
@@ -96,12 +102,6 @@ var fileWatcher = null;
 				// to AWS every 2 hours so maybe no need to reauth on expired token
 				process.exit(1);
 				break;
-		
-			case 408:
-				log.debug('Brume server:', code, errorCodeMessages[code]);
-				fileWatcher.close().then(() => log.debug('brume-client: fileWatcher closed'));
-				brumeStart();
-				break;
 
 				default:
 				log.error('Brume server error: ', code, errorCodeMessages[code]);
@@ -109,3 +109,4 @@ var fileWatcher = null;
 		}
 	}
 })()
+console.log('brumeStart done');

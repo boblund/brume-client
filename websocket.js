@@ -1,12 +1,11 @@
 "use strict";
 
-const
-  log = require('./logger.js'),
-  pingInterval = setInterval(function ping() {
-    ws.ping(()=>{}) }, 9.8 * 60 * 1000);
-
+const log = require('./logger.js');
 
 function createWebsocket(url, token) {
+  const pingInterval = setInterval(function ping() {
+    ws.ping(()=>{}) }, 9.8 * 60 * 1000);
+
   return new Promise((resolve, reject) => {
     var ws
 
@@ -25,6 +24,8 @@ function createWebsocket(url, token) {
     ws.onopen = () => {
       // close can come before ws is set
       ws.on('close', () => {
+        log.error('ws server: close');
+        clearInterval(pingInterval);
         ws.emit('serverclose')
       })
 

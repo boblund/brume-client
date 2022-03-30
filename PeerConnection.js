@@ -126,7 +126,7 @@ class PeerConnection {
   }
 }
 
-function makePeerConnection(ws, name) {
+function initPeerConnection(ws, name) {
   PeerConnection.myName = name;
   PeerConnection.signallingServer = ws
   
@@ -155,4 +155,4 @@ function makePeerConnection(ws, name) {
 }
 
 
-module.exports = makePeerConnection
+module.exports = initPeerConnection
