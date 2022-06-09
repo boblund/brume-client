@@ -2,7 +2,8 @@
 "use strict";
 
 const
-	{readFileSync} = require('fs'),
+	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
+	{readFileSync, writeFileSync} = require('fs'),
 	jwt = require('jsonwebtoken'),
 	{resolve4} = require('mdns-resolver'),
 	BrumeData = require('./BrumeData'),
@@ -13,37 +14,14 @@ const
 	sender = require("./sender.js"),
 	receiver = require("./receiver.js"),
 	createWebsocket = require('./websocket.js'),
+	{refreshTokenAuth} = require('./cognitoAuth.js'),
 	baseDir = process.env.BRUME_FILES ? process.env.BRUME_FILES : process.env.HOME+"/Brume/",
 	configFile = process.argv.length == 3
 		? process.argv[2]
 		: process.env.BRUME_CONFIG
 			? process.env.BRUME_CONFIG
-			: process.env.HOME+'/.config/Brume/brume.conf';
+			: process.env.HOME+'/Brume/brume.conf';
 
-try {
-	var {token, url, logLevel} = JSON.parse(readFileSync(configFile, 'utf-8'))
-	if(!baseDir || !token || !url) throw('baseDir, token or url not set')
-} catch(e) {
-	log.error(`brume config error ${configFile} ${e.message}`)
-	process.exit(1)
-}
-
-log.setLevel(process.env.LOG != undefined ? process.env.LOG : logLevel != undefined ? logLevel: 'INFO')
-var [addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null]
-port = port ? ':' + port : '';
-
-const
-	thisUser = jwt.decode(token).username,
-	errorCodeMessages = {
-		400: 'Missing token',
-		401: 'Unauthorized',
-		403: 'unknown member: ' + thisUser,
-		404: 'Server not found',
-		406: 'Bad token',
-		409: thisUser + ' already connected',
-		500: 'Server error',
-		501: 'Server error',
-	};
 
 var 
 	fileWatcher = null,
@@ -52,20 +30,45 @@ var
 const initPeerConnection = require('./PeerConnection.js');
 
 (async function brumeStart(reason) {
-	var ws;
+	let config;
+	try {
+		config = JSON.parse(readFileSync(configFile, 'utf-8'));
+		if(!config.token || !config.url) throw('token or url not set');
+	} catch(e) {
+		log.error(`brume config error ${configFile} ${e.message}`)
+		process.exit(1)
+	}
+	
+	log.setLevel(process.env.LOG != undefined ? process.env.LOG : config.logLevel != undefined ? config.logLevel: 'INFO')
 
+	let
+		thisUser = jwt.decode(config.token)['custom:brume_name'],
+		errorCodeMessages = {
+			400: 'Missing token',
+			401: 'Unauthorized',
+			404: 'unknown member: ' + thisUser,
+			406: 'Bad token',
+			409: thisUser + ' already connected',
+			500: 'Server error',
+			501: 'Server error',
+		};
+	
+	let [addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null]
+	port = port ? ':' + port : '';
+	
 	if(reason != 'serverclose') {
 		log.info('starting brume-client', thisUser)
-		url = addr
+		config.url = addr
 		? 'ws://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
 				? addr.match(/^\d+\.\d+\.\d+\.\d+/)[0]
 				: await new Promise(res=>{resolve4(addr).then(res).catch(()=>{res(addr)})})
 			) + port
-		: url;
+		: config.url;
 	}
 
+	var ws;
 	try {
-		ws = await createWebsocket(url, token)
+		ws = await createWebsocket(config.url, config.token)
 
     ws.on('serverclose', function() {
       log.debug('ws server close');
@@ -73,7 +76,7 @@ const initPeerConnection = require('./PeerConnection.js');
       brumeStart('serverclose');
     })
 
-		log.info('connected to Brume server ' + url)
+		log.info('connected to Brume server ' + config.url)
 		PeerConnection = initPeerConnection(ws, thisUser);
 
 		if(reason != 'serverclose') {
@@ -98,12 +101,18 @@ const initPeerConnection = require('./PeerConnection.js');
 		
 			case 401:
 				log.info('reauthorize');
-				// reauthorize rather than exit(1)? user has to reuath with existing token
-				// to AWS every 2 hours so maybe no need to reauth on expired token
-				process.exit(1);
+				try{
+					let {IdToken} = await refreshTokenAuth(CLIENTID, config.RefreshToken);
+					config.token = IdToken;
+					writeFileSync(configFile, JSON.stringify(config));
+					brumeStart()
+				} catch(e) {
+					//auth with refresh failed. someone (cognito trigger?) needs to send email to user
+					setTimeout(brumeStart, minutes*60*1000);
+				}
 				break;
 
-				default:
+			default:
 				log.error('Brume server error: ', code, errorCodeMessages[code]);
 				process.exit(1)
 		}
