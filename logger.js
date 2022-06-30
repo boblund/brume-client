@@ -1,5 +1,7 @@
 'use strict';
 
+const notifier = require('node-notifier');
+
 const 
 	levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'],
 	timestamp = process.stdout.isTTY;
@@ -32,5 +34,12 @@ module.exports = {
 	info(...args) {log('INFO')(...args)},
 	warn(...args) {log('WARN')(...args)},
 	error(...args) {log('ERROR')(...args)},
+	notify(...args) {
+		try {
+			notifier.notify(...args);
+		} catch(e) {
+			log('INFO')(...args)
+		}
+	},
 	setLevel
 }

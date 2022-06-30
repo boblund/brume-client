@@ -91,11 +91,12 @@ const initPeerConnection = require('./PeerConnection.js');
 		}
 	} catch (err) {
 		let code = err.code ? err.code : JSON.parse(err.message.match('.*:[ ]+\(.*\)')[1]);
+		let minutes;
 		switch(code) {
 			case 'ECONNREFUSED':
 			case 'ENOTFOUND':
-				const minutes= 10;
-				log.warn("createWebsocket error:",e.code, ". Retry in", minutes, 'minutes');
+				minutes= 10;
+				log.warn("brume-client: error",e.code, ". Retry in", minutes, 'minutes');
 				setTimeout(brumeStart, minutes*60*1000);
 				break;
 		
@@ -107,7 +108,13 @@ const initPeerConnection = require('./PeerConnection.js');
 					writeFileSync(configFile, JSON.stringify(config));
 					brumeStart()
 				} catch(e) {
+					const msg='You must do "Update configuration" in your Brume account '
+										+ 'to enable access to the Brume message service.';
+
 					//auth with refresh failed. someone (cognito trigger?) needs to send email to user
+					minutes = 60;
+					log.warn('brume-client: token refresh error',e.code);
+					log.notify(msg);
 					setTimeout(brumeStart, minutes*60*1000);
 				}
 				break;
@@ -117,4 +124,5 @@ const initPeerConnection = require('./PeerConnection.js');
 				process.exit(1)
 		}
 	}
+	log.notify('Brume started');
 })()
