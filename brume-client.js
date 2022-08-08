@@ -113,7 +113,7 @@ const initPeerConnection = require('./PeerConnection.js');
 
 					//auth with refresh failed. someone (cognito trigger?) needs to send email to user
 					minutes = 60;
-					log.warn('brume-client: token refresh error',e.code);
+					log.warn(`brume-client: token refresh error: ${e.code}. Attempt restart in ${minutes} minutes`);
 					log.notify(msg);
 					setTimeout(brumeStart, minutes*60*1000);
 				}
