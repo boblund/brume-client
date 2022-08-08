@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/boblund/brume#readme",
   "dependencies": {
+    "@koush/wrtc": "^0.5.3",
     "aws-lambda-ws-server": "^0.1.21",
     "aws-sdk": "^2.1150.0",
     "chokidar": "^3.5.3",

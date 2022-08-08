@@ -1,11 +1,16 @@
 "use strict";
 
-const SimplePeer = require('simple-peer')
-    , wrtc = require('wrtc')
-    ,log = require('./logger.js')
-    ,sendWait = 10 * 1000  //10 seconds
+const os = require('os');
+const log = require('./logger.js');
+const wrtc = (os.cpus()[0].model == 'Apple M1') && (os.arch() == 'arm64')
+				? require('@koush/wrtc')
+				: require('wrtc');
+const SimplePeer = require('simple-peer');
+const sendWait = 10 * 1000;  //10 seconds
 
-SimplePeer.prototype.Send = SimplePeer.prototype.send
+log.info(`PeerConnection.js: model == ${os.cpus()[0].model} arch == ${os.arch()}`);
+
+SimplePeer.prototype.Send = SimplePeer.prototype.send;
 SimplePeer.prototype.send = function(chunk) {
   if(this._channel.readyState == 'open') {
     this.Send(chunk)
