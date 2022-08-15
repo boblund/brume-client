@@ -96,7 +96,7 @@ const initPeerConnection = require('./PeerConnection.js');
 			case 'ECONNREFUSED':
 			case 'ENOTFOUND':
 				minutes= 10;
-				log.warn("brume-client: error",e.code, ". Retry in", minutes, 'minutes');
+				log.warn("brume-client: error",err.code, ". Retry in", minutes, 'minutes');
 				setTimeout(brumeStart, minutes*60*1000);
 				break;
 		
