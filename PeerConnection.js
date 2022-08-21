@@ -124,7 +124,7 @@ class PeerConnection {
           reject(e);
         })
       } catch (e) {
-        e.peer = this.peer
+        e.peer = this.peer;
         reject(e)        
       }
     })
@@ -145,7 +145,8 @@ function initPeerConnection(ws, name) {
   })
 
   PeerConnection.signallingServer.on('peerError', (error) => {
-    PeerConnection.peers[error.channelName].peer.emit('error', error);
+		const peer = PeerConnection.peers[error.channelName]
+    if(peer) peer.peer.emit('error', error);
   })
 
   PeerConnection.signallingServer.on('offer', async (data) => {
