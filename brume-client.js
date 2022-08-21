@@ -53,17 +53,19 @@ const initPeerConnection = require('./PeerConnection.js');
 			501: 'Server error',
 		};
 	
-	let [addr, port] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split(':') : [null, null]
+	let [protocol, url] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split('://') : [null, null]
+	let [addr, port] = url ? url.split(':') : [undefined, undefined];
 	port = port ? ':' + port : '';
 	
 	if(reason != 'serverclose') {
 		log.info('starting brume-client', thisUser)
 		config.url = addr
-		? 'ws://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
+			? protocol + '://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
 				? addr.match(/^\d+\.\d+\.\d+\.\d+/)[0]
 				: await new Promise(res=>{resolve4(addr).then(res).catch(()=>{res(addr)})})
 			) + port
 		: config.url;
+		//config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : config.url;
 	}
 
 	var ws;
