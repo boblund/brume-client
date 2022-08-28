@@ -39,7 +39,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
               try {
                 writeFileSync(baseDir+err.cmd.file.split('/').splice(0,2).join('/')+'/.retryOnSync', JSON.stringify(err.cmd)+'\n', {flag:'a'})
               } catch (e) {
-                log.error(`eventQueue: error writing .retryOnSync ${e.message}`)
+                log.error(`sender: error writing .retryOnSync ${e.message}`)
               }
             }
             return 'BREAK'
@@ -53,19 +53,23 @@ function sender({PeerConnection, eventQueue, brumeData}) {
   
       case 'EBADDEST':
         groupInfo.memberStatus(err.peerName, 'notconnected')
-        log.warn(`eventQueue: ${err.peerName} not Brume user`)
-        break
+        log.warn(`sender: ${err.peerName} not Brume user`);
+        break;
         
       case 'ENOTMEMBER':
-        log.warn('eventQueue:   ', err.message)
+        log.warn(`sender: ${err.message}`);
         break
+
+			case 'ESERVER':
+				log.warn(`sender: ws server error ${err.message ? err.message : ''}`);
+				break
 
       case 'ERMPATH':
       case 'ETIMEOUT':
         break
   
       default:
-        log.error('eventQueue: unknown error:', err);
+        log.error(`sender: unknown error: ${err}`);
     }
     return '';
   }
@@ -153,7 +157,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         user = qEntry.file.split('/')[0]
         group = qEntry.file.split('/')[1]
       } else {
-        log.error(`eventQueue: can't process without group`)
+        log.error(`sender: can't process without group`)
         return
       }
     }
@@ -164,7 +168,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
     
     log.debug('processQ dests', dests)
     if(dests.length == 0) {
-      log.warn(`eventQueue: no members in group ${group}`)
+      log.warn(`sender: no members in group ${group}`)
       return
     }
     
