@@ -69,7 +69,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
         break
   
       default:
-        log.error(`sender: unknown error: ${err}`);
+        log.error(`sender: unknown error: ${JSON.stringify(err)}`);
     }
     return '';
   }
