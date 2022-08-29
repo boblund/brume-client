@@ -6,7 +6,7 @@ const wrtc = (os.cpus()[0].model == 'Apple M1') && (os.arch() == 'arm64')
 				? require('@koush/wrtc')
 				: require('wrtc');
 const SimplePeer = require('simple-peer');
-const sendWait = 10 * 1000;  //10 seconds
+const sendWait = (process.env.SEND_TIMEOUT ? Number(process.env.SEND_TIMEOUT) : 10) * 1000;  //10 seconds
 
 log.info(`PeerConnection.js: model == ${os.cpus()[0].model} arch == ${os.arch()}`);
 
