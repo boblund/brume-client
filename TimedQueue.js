@@ -3,7 +3,7 @@
 // TimedQueue calls cb with queue entry at specified time
 function TimedQueue(cb) {
 	var activeTimer = null
-			, queue = []
+		, queue = []
 	;
 
 	// Dequeue entry on timeout
@@ -13,7 +13,7 @@ function TimedQueue(cb) {
 			activeTimer = setTimeout(timerCB, queue[0].eventTime - Date.now()); // Next timeout
 		}
 		if(event.constructor.name !== 'Object') {
-			event()
+			event();
 		} else {
 			cb(event);
 		}
@@ -28,17 +28,17 @@ function TimedQueue(cb) {
 		let entry = {event: e, eventTime: Date.now() + delayMsec};
 		//let i = queue.length == 0 ? 0 : queue.findIndex(f, entry.eventTime)
 		// Find where this entry should go in the time orderd queue
-		let i = queue.length == 0 ? 0 : queue.findIndex(function(e){return this<=e.eventTime}, entry.eventTime)
+		let i = queue.length == 0 ? 0 : queue.findIndex(function(e){return this<=e.eventTime;}, entry.eventTime);
 		if(i == -1){																			// Add entry to end of queue
-			queue.push(entry)
+			queue.push(entry);
 		} else {
 			if(i == 0) {																		// Entry goes at front of queue. Reset timer.
 				clearTimeout(activeTimer);										// Stop existing timer
-				activeTimer = setTimeout(timerCB, delayMsec)	// Start new timer for entry delayMsec
+				activeTimer = setTimeout(timerCB, delayMsec);	// Start new timer for entry delayMsec
 			}
-			queue.splice(i, 0, entry)												// Insert entry
+			queue.splice(i, 0, entry);												// Insert entry
 		}
-	}
+	};
 }
 
-module.exports = TimedQueue
+module.exports = TimedQueue;

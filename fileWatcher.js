@@ -1,118 +1,118 @@
 "use strict";
 
 const fileWatcher = require('chokidar')
-      , {promises: {utimes}} = require('fs')
-      , log = require('./logger.js')
-      , NetworkEvents = require('./networkEvents.js')
+	, {promises: {utimes}} = require('fs')
+	, log = require('./logger.js')
+	, NetworkEvents = require('./networkEvents.js');
 
 function FileWatcher({brumeData, eventQueue, networkEvents}) {
-  let {baseDir, groupInfo, thisUser, fileData} = brumeData
+	let {baseDir, groupInfo, thisUser, fileData} = brumeData;
 
-  function initAddHandler(path, stats) {
-    let p = path.split('/')
-    if((p[2] == '.members') || !path.match(/(^|[\/])\./)) {
-      fileData.set(path, {mod: stats.mtime.toISOString()})
-      fileData.setSync(path, false)
-      log.debug(`fileData ${path} ${JSON.stringify(fileData.get(path))}`)
-    }
-  }
+	function initAddHandler(path, stats) {
+		let p = path.split('/');
+		if((p[2] == '.members') || !path.match(/(^|[\/])\./)) {
+			fileData.set(path, {mod: stats.mtime.toISOString()});
+			fileData.setSync(path, false);
+			log.debug(`fileData ${path} ${JSON.stringify(fileData.get(path))}`);
+		}
+	}
 
-  const watcher = fileWatcher.watch('.', {
-    cwd: baseDir
-    ,ignored: /-CONFLICT-/
-    ,awaitWriteFinish: {stabilityThreshold: 200}
-  })
-  this.close = watcher.close
+	const watcher = fileWatcher.watch('.', {
+		cwd: baseDir
+		,ignored: /-CONFLICT-/
+		,awaitWriteFinish: {stabilityThreshold: 200}
+	});
+	this.close = watcher.close;
 
-  watcher
-    .on('add', initAddHandler)
-    .on('ready', () => {
-      let utimesEvents = new NetworkEvents('utime');
-      groupInfo.sync()
-      watcher
-        .removeListener('add', initAddHandler)
-        .on('all', async (event, path, stats) => {
-          log.debug('fileWatcher:    ', event, path)
-          if(utimesEvents.remove({action: event, file: path}) > -1) {
-            log.debug('fileWatcher:    utimesEvent', event, path)
-            return
-          }
+	watcher
+		.on('add', initAddHandler)
+		.on('ready', () => {
+			let utimesEvents = new NetworkEvents('utime');
+			groupInfo.sync();
+			watcher
+				.removeListener('add', initAddHandler)
+				.on('all', async (event, path, stats) => {
+					log.debug('fileWatcher:    ', event, path);
+					if(utimesEvents.remove({action: event, file: path}) > -1) {
+						log.debug('fileWatcher:    utimesEvent', event, path);
+						return;
+					}
 
-          let [fileOwner, fileGroup, ...filePath ] = path.split('/')
-          filePath = filePath.join('/')
-          let cmd = {action: event, file: path}
+					let [fileOwner, fileGroup, ...filePath ] = path.split('/');
+					filePath = filePath.join('/');
+					let cmd = {action: event, file: path};
 
-          // ignore all .dotfiles except user/group/.members
-          if(path.match(/(^|[\/])\./)) {
-            if(filePath == '.members') {
-              if(fileOwner == thisUser) {
-                groupInfo.updateMembers(fileOwner, fileGroup, cmd.action)
-                return
-              }
-            } else {
-              return
-            }
-          }
+					// ignore all .dotfiles except user/group/.members
+					if(path.match(/(^|[\/])\./)) {
+						if(filePath == '.members') {
+							if(fileOwner == thisUser) {
+								groupInfo.updateMembers(fileOwner, fileGroup, cmd.action);
+								return;
+							}
+						} else {
+							return;
+						}
+					}
 
-          switch(event) {
-            case 'add':
-            case 'change':
-              if(networkEvents.remove(cmd) == -1) {
-                cmd.pmod = event == 'change' ? fileData.get(path).mod : 0
-                let mod = stats.mtime.toISOString()
-                cmd.mod = mod
-                fileData.set(cmd.file, {mod: mod})
+					switch(event) {
+						case 'add':
+						case 'change':
+							if(networkEvents.remove(cmd) == -1) {
+								cmd.pmod = event == 'change' ? fileData.get(path).mod : 0;
+								let mod = stats.mtime.toISOString();
+								cmd.mod = mod;
+								fileData.set(cmd.file, {mod: mod});
 
-                if(filePath == '.members' && fileOwner != thisUser) {
-                  // member cannot add or change. Resync
-                  cmd = {action: 'sync', dest: fileOwner, group: fileGroup, files: fileData.grpFiles(fileOwner, fileGroup)}
-                }
+								if(filePath == '.members' && fileOwner != thisUser) {
+									// member cannot add or change. Resync
+									cmd = {action: 'sync', dest: fileOwner, group: fileGroup, files: fileData.grpFiles(fileOwner, fileGroup)};
+								}
 
-                eventQueue.push(cmd)
-              } else {
-                log.debug('fileWatcher:    networkEvent', event, path)
+								eventQueue.push(cmd);
+							} else {
+								log.debug('fileWatcher:    networkEvent', event, path);
 
-                try {
-                  utimesEvents.add({action: 'change', file: path})
-                  let date = new Date(fileData.get(path).mod)
-                  log.debug(`fileWatcher:    utimes(${baseDir+path})`)
-                  await utimes(baseDir+path, date, date)
-                } catch (e) {
-                  log.error(`watcher utimes error ${path} ${e.message}`)
-                }
-              }
+								try {
+									utimesEvents.add({action: 'change', file: path});
+									let date = new Date(fileData.get(path).mod);
+									log.debug(`fileWatcher:    utimes(${baseDir+path})`);
+									await utimes(baseDir+path, date, date);
+								} catch (e) {
+									log.error(`watcher utimes error ${path} ${e.message}`);
+								}
+							}
 
-              break
+							break;
 
-            case 'unlink':
-              fileData.delete(path)
-              if(networkEvents.remove(cmd) == -1) {
-                // unlink generated by local user
-                if(filePath == '.members') cmd.dest = fileOwner  // only send unlink .members to group owner
-                if(groupInfo.memberOf(fileOwner, fileGroup)) eventQueue.push(cmd) // only send not group member
-              } else {
-                 log.debug('fileWatcher:    networkEvent', event, path)
-              }
+						case 'unlink':
+							fileData.delete(path);
+							if(networkEvents.remove(cmd) == -1) {
+								// unlink generated by local user
+								if(filePath == '.members') cmd.dest = fileOwner;  // only send unlink .members to group owner
+								if(groupInfo.memberOf(fileOwner, fileGroup)) eventQueue.push(cmd); // only send not group member
+							} else {
+								log.debug('fileWatcher:    networkEvent', event, path);
+							}
               
-              break
+							break;
     
-            case 'addDir':
-              if(filePath == '') {
-                groupInfo.addGroup(fileOwner, fileGroup)
-                if(fileOwner != thisUser) {
-                  //groupInfo.sendSync(fileOwner, fileGroup)
-                  groupInfo.sync(fileOwner, fileGroup)
-                }
-              } 
-              break
+						case 'addDir':
+							if(filePath == '') {
+								groupInfo.addGroup(fileOwner, fileGroup);
+								if(fileOwner != thisUser) {
+									//groupInfo.sendSync(fileOwner, fileGroup)
+									groupInfo.sync(fileOwner, fileGroup);
+								}
+							} 
+							break;
     
-            case 'unlinkDir':
-              if(filePath == '' && fileOwner != thisUser) {
-                groupInfo.rmGroup(fileOwner, fileGroup) // replaced by removing group .members
-              }
-          }
-        })
-      })
+						case 'unlinkDir':
+							if(filePath == '' && fileOwner != thisUser) {
+								groupInfo.rmGroup(fileOwner, fileGroup); // replaced by removing group .members
+							}
+					}
+				});
+		});
 }
 
-module.exports = FileWatcher
+module.exports = FileWatcher;

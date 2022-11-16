@@ -12,9 +12,9 @@ const log = a => (...b) => {
 	if(levels.indexOf(a) > -1) {
 		if(levels.indexOf(a) >= level) {
 			if(timestamp) {
-				let d = new Date()
+				let d = new Date();
 				process.stdout.write(`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`
-					+ ` ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()} `)
+					+ ` ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()} `);
 			}
 			console.log('['+a+']', ...b);
 		}
@@ -27,19 +27,19 @@ const log = a => (...b) => {
 const setLevel = l => 
 	level = levels.indexOf(l) > -1 
 		? levels.indexOf(l)
-		: (console.log(`[error] log: bad log level log(${a})(${b})`), level);
+		: 1;
 
 module.exports = {
-	debug(...args) {log('DEBUG')(...args)},
-	info(...args) {log('INFO')(...args)},
-	warn(...args) {log('WARN')(...args)},
-	error(...args) {log('ERROR')(...args)},
+	debug(...args) {log('DEBUG')(...args);},
+	info(...args) {log('INFO')(...args);},
+	warn(...args) {log('WARN')(...args);},
+	error(...args) {log('ERROR')(...args);},
 	notify(...args) {
 		try {
 			notifier.notify(...args);
 		} catch(e) {
-			log('INFO')(...args)
+			log('INFO')(...args);
 		}
 	},
 	setLevel
-}
+};

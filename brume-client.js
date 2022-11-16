@@ -35,17 +35,18 @@ const initPeerConnection = require('./PeerConnection.js');
 		config = JSON.parse(readFileSync(configFile, 'utf-8'));
 		if(!config.token || !config.url) throw('token or url not set');
 	} catch(e) {
-		log.error(`brume config error ${configFile} ${e.message}`)
-		process.exit(1)
+		log.error(`brume config error ${configFile} ${e.message}`);
+		process.exit(1);
 	}
 	
-	log.setLevel(process.env.LOG != undefined ? process.env.LOG : config.logLevel != undefined ? config.logLevel: 'INFO')
+	log.setLevel(process.env.LOG != undefined ? process.env.LOG : config.logLevel != undefined ? config.logLevel: 'INFO');
 
 	let
 		thisUser = jwt.decode(config.token)['custom:brume_name'],
 		errorCodeMessages = {
 			400: 'Missing token',
 			401: 'Unauthorized',
+			402: 'Payment required',
 			404: 'unknown member: ' + thisUser,
 			406: 'Bad token',
 			409: thisUser + ' already connected',
@@ -53,32 +54,32 @@ const initPeerConnection = require('./PeerConnection.js');
 			501: 'Server error',
 		};
 	
-	let [protocol, url] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split('://') : [null, null]
+	let [protocol, url] = process.env.BRUME_SERVER ? process.env.BRUME_SERVER.split('://') : [null, null];
 	let [addr, port] = url ? url.split(':') : [undefined, undefined];
 	port = port ? ':' + port : '';
 	
 	if(reason != 'serverclose') {
-		log.info('starting brume-client', thisUser)
+		log.info('starting brume-client', thisUser);
 		config.url = addr
 			? protocol + '://' + (addr.match(/^\d+\.\d+\.\d+\.\d+/)
 				? addr.match(/^\d+\.\d+\.\d+\.\d+/)[0]
-				: await new Promise(res=>{resolve4(addr).then(res).catch(()=>{res(addr)})})
+				: await new Promise(res=>{resolve4(addr).then(res).catch(()=>{res(addr);});})
 			) + port
-		: config.url;
+			: config.url;
 		//config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : config.url;
 	}
 
 	var ws;
 	try {
-		ws = await createWebsocket(config.url, config.token)
+		ws = await createWebsocket(config.url, config.token);
 
-    ws.on('serverclose', function() {
-      log.info('ws server close');
-      ws = null;
-      setTimeout(()=>{brumeStart('serverclose')}, 10*1000);  //give server time to delete closed session
-    })
+		ws.on('serverclose', function() {
+			log.info('ws server close');
+			ws = null;
+			setTimeout(()=>{brumeStart('serverclose');}, 10*1000);  //give server time to delete closed session
+		});
 
-		log.info('connected to Brume server ' + config.url)
+		log.info('connected to Brume server ' + config.url);
 		PeerConnection = initPeerConnection(ws, thisUser);
 
 		if(reason != 'serverclose') {
@@ -108,7 +109,7 @@ const initPeerConnection = require('./PeerConnection.js');
 					let {IdToken} = await refreshTokenAuth(CLIENTID, config.RefreshToken);
 					config.token = IdToken;
 					writeFileSync(configFile, JSON.stringify(config));
-					brumeStart()
+					brumeStart();
 				} catch(e) {
 					const msg='You must do "Update configuration" in your Brume account '
 										+ 'to enable access to the Brume message service.';
@@ -122,9 +123,9 @@ const initPeerConnection = require('./PeerConnection.js');
 				break;
 
 			default:
-				log.error('Brume server error: ', code, errorCodeMessages[code]);
-				process.exit(1)
+				log.error(`Brume server error: ${code} ${errorCodeMessages[code] ? errorCodeMessages[code] : ''}`);
+				process.exit(1);
 		}
 	}
 	log.notify('Brume started');
-})()
+})();
