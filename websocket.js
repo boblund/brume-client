@@ -6,7 +6,10 @@ function createWebsocket(url, token) {
 	return new Promise((resolve, reject) => {
 		var ws;
 
-		ws = new (require('ws'))(url, {headers : { token: token}});
+		ws = new (require('ws'))(url, {
+			headers : { token: token},
+			rejectUnauthorized: false
+		});
 
 		const pingInterval = setInterval(function ping() {
 			ws.ping(()=>{}); }, 9.8 * 60 * 1000);
@@ -40,7 +43,7 @@ function createWebsocket(url, token) {
 
 			switch (data.type) {
 				case 'msg':
-					log.debug(`ws:     msg ${data.data.type} ${data.data.channelName}`);
+					log.debug(`ws:     msg ${data.data.type} ${data.data.channelId}`);
 					ws.emit(data.data.type, data);
 					break;
 
@@ -52,7 +55,7 @@ function createWebsocket(url, token) {
 					ws.emit('peerError', {
 						code: data.code   //ENODEST, EBADDEST
 						, peerName: data.edata.receiver
-						, channelName: data.edata.channelName
+						, channelId: data.edata.channelId
 					});
 					break;
 

@@ -73,7 +73,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 						break process;
 					}
 
-					log.info(`receiver ${peer.channelName}: ${cmd.action} ${src}`
+					log.info(`receiver ${peer.channelId}: ${cmd.action} ${src}`
             + ` ${cmd.file ? cmd.file : ''} ${cmd.mvFile ? cmd.mvFile : ''}`);
 
 					let owner, member, group, isMember;
@@ -138,7 +138,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 								}
 							}
 
-							log.info(`receiver ${peer.channelName}: ${cmd.action} ${src} SUCCESS`);
+							log.info(`receiver ${peer.channelId}: ${cmd.action} ${src} SUCCESS`);
 							break;
 
 						case 'syncReq':
@@ -147,7 +147,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 							}
 							groupInfo.sync(src, cmd.group);
 							resp = {type: 'SUCCESS', cmd: cmd.action};
-							log.info(`receiver ${peer.channelName}: ${cmd.action} ${src} SUCCESS`);              
+							log.info(`receiver ${peer.channelId}: ${cmd.action} ${src} SUCCESS`);              
 							break;
 
 						case 'unlink':
@@ -177,7 +177,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 								}
 							}
 
-							log.info(`receiver ${peer.channelName}: ${cmd.action} ${src} ${cmd.file} ${resp.type}`);
+							log.info(`receiver ${peer.channelId}: ${cmd.action} ${src} ${cmd.file} ${resp.type}`);
 							break;
 
 						case 'add':
@@ -217,7 +217,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 									});
 								}
 								resp = brumeError(error, '');
-								log.info(`receiver ${peer.channelName}: ${cmd.action} ${src} ${cmd.file} ERROR ${error}`);
+								log.info(`receiver ${peer.channelId}: ${cmd.action} ${src} ${cmd.file} ERROR ${error}`);
 								break;
 							}
 
@@ -237,7 +237,7 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 
 							outStream.on('close', () => {
 								peer.send(JSON.stringify(resp));
-								log.info(`receiver ${peer.channelName}: ${cmd.action} ${src} ${cmd.file} SUCCESS`);    
+								log.info(`receiver ${peer.channelId}: ${cmd.action} ${src} ${cmd.file} SUCCESS`);    
 								peer.destroy();
 								resolve();
 							});

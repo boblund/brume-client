@@ -15,17 +15,17 @@ SimplePeer.prototype.send = function(chunk) {
 	if(this._channel.readyState == 'open') {
 		this.Send(chunk);
 	} else {
-		log.warn(`${this.type} ${this.channelName}: peer.send readyState == ${this._channel.readyState}`);
+		log.warn(`${this.type} ${this.channelId}: peer.send readyState == ${this._channel.readyState}`);
 	}
 };
 
 function sendTimeout(peer, action) {
-	log.debug(`${peer.type} ${peer.channelName}: ${action} ${peer.peerName} sendTimer`);
+	log.debug(`${peer.type} ${peer.channelId}: ${action} ${peer.peerName} sendTimer`);
 	peer.sendTimer = setTimeout(
 		function() {
-			//log.warn(`${peer.type} ${peer.channelName}: ${action} timeout`)
+			//log.warn(`${peer.type} ${peer.channelId}: ${action} timeout`)
 			//peer.destroy()
-			peer.emit('error', {code: 'ETIMEOUT', channelName: peer.channelName,  message: `${peer.type} ${action} timeout`});
+			peer.emit('error', {code: 'ETIMEOUT', channelId: peer.channelId,  message: `${peer.type} ${action} timeout`});
 		}
 		,sendWait
 	);
@@ -36,7 +36,6 @@ function createPeer(type) {
 		sender: {
 			initiator: true
 			, trickle: false
-			, channelName: PeerConnection.myName + '-' + Math.random().toString(10).slice(2,6)
 			, wrtc: wrtc
 		}
 		,receiver: {
@@ -46,6 +45,9 @@ function createPeer(type) {
 	};
 
 	var peer =  new SimplePeer(peerOptions[type]);
+	if(type == 'sender') {
+		peer.channelId = PeerConnection.myName + '-' + Math.random().toString(10).slice(2,6)
+	}
 
 	peer.on('signal', data => {
 		if(['offer', 'answer', 'candidate'].indexOf(data.type) >=0) {
@@ -77,12 +79,12 @@ class PeerConnection {
 			this.peer.peerName = peerName;
 
 			if(this.type == 'sender'){
-				PeerConnection.peers[this.peer.channelName] = this;
+				PeerConnection.peers[this.peer.channelId] = this;
 			}
 			if(this.type == 'receiver') {
 				if(offer) {
-					this.peer.channelName = offer.channelName;
-					PeerConnection.peers[offer.channelName] = this;
+					this.peer.channelId = offer.channelId;
+					PeerConnection.peers[offer.channelId] = this;
 					this.peer.signal(offer);
 				} else {
 					log.error('peerConnection: receiver without offer');
@@ -91,20 +93,20 @@ class PeerConnection {
 			}
 			try {
 				this.peer.on('offer', data => {
-					data.channelName = this.peer.channelName;
+					data.channelId = this.peer.channelId;
 					PeerConnection.signallingServer.sendMsg(
 						{action: 'send', data: data, to: peerName});
 					sendTimeout(this.peer, 'offer');
 				});
 
 				this.peer.on('answer', data => {
-					data.channelName = this.peer.channelName;
+					data.channelId = this.peer.channelId;
 					try {
 						PeerConnection.signallingServer.sendMsg(
 							{action: 'send', data: data, to: peerName});
 						sendTimeout(this.peer, 'answer');
 					} catch(e) {
-						log.error('send answer error', data.channelName, e.code);
+						log.error('send answer error', data.channelId, e.code);
 					}
 				});
 
@@ -115,8 +117,8 @@ class PeerConnection {
 
 				this.peer.on('close', () => {
 					clearTimeout(this.peer.sendTimer);
-					log.debug(`${this.type} ${this.peer.channelName}: peer close`);
-					delete PeerConnection.peers[this.peer.channelName];
+					log.debug(`${this.type} ${this.peer.channelId}: peer close`);
+					delete PeerConnection.peers[this.peer.channelId];
 				});
 
 				this.peer.on('error', (e) => {
@@ -136,16 +138,16 @@ function initPeerConnection(ws, name) {
 	PeerConnection.signallingServer = ws;
   
 	PeerConnection.signallingServer.on('answer', (data) => {
-		if(PeerConnection.peers[data.data.channelName]) {
-			clearTimeout(PeerConnection.peers[data.data.channelName].peer.sendTimer);
-			PeerConnection.peers[data.data.channelName].peer.signal(data.data);
+		if(PeerConnection.peers[data.data.channelId]) {
+			clearTimeout(PeerConnection.peers[data.data.channelId].peer.sendTimer);
+			PeerConnection.peers[data.data.channelId].peer.signal(data.data);
 		} else {
 			log.error(`${PeerConnection.type} answer: no peer for ${data.from}`);
 		}
 	});
 
 	PeerConnection.signallingServer.on('peerError', (error) => {
-		const peer = PeerConnection.peers[error.channelName];
+		const peer = PeerConnection.peers[error.channelId];
 		if(peer) peer.peer.emit('error', error);
 	});
 

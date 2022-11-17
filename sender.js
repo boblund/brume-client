@@ -6,10 +6,10 @@ const
 	sendWait = 10 * 1000;  //10 seconds
 
 function sendTimeout(peer) {
-	log.debug(`sender ${peer.channelName}: peer.send sendTimer`);
+	log.debug(`sender ${peer.channelId}: peer.send sendTimer`);
 	peer.sendTimer = setTimeout(
 		function() {
-			peer.emit('timeout', {code: 'ETIMEOUT', channelName: peer.channelName,  message: 'peer.send timeout'});
+			peer.emit('timeout', {code: 'ETIMEOUT', channelId: peer.channelId,  message: 'peer.send timeout'});
 		}
 		,sendWait
 	);
@@ -27,7 +27,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
 				return 'BREAK';
   
 			case 'ENODEST':
-				log.warn(`sender ${err.channelName}: ${err.peerName} not connected`);
+				log.warn(`sender ${err.channelId}: ${err.peerName} not connected`);
 				if(['add', 'change', 'unlink'].includes(err.cmd.action)) {
 					let fileOwner = err.cmd.file.split('/')[0];
 					if(fileOwner == err.peerName || fileOwner == thisUser) {
@@ -80,14 +80,14 @@ function sender({PeerConnection, eventQueue, brumeData}) {
 				peer = null;
 			try {
 				peer = await peerConnection.open(dest);
-				log.info(`sender ${peer.channelName}: ${cmd.action} ${dest} ${cmd.group != undefined ? cmd.group : ''}`
+				log.info(`sender ${peer.channelId}: ${cmd.action} ${dest} ${cmd.group != undefined ? cmd.group : ''}`
           + ` ${cmd.file != undefined ? cmd.file : ''}`);
 
 				peer.on('data', (data) => {
 					clearTimeout(peer.sendTimer);
 					let result = JSON.parse(data.toString());
 					if(result.type == 'SUCCESS') {
-						log.info(`sender ${peer.channelName}: ${result.cmd.action ? result.cmd.action : result.cmd} ${dest}`
+						log.info(`sender ${peer.channelId}: ${result.cmd.action ? result.cmd.action : result.cmd} ${dest}`
               + ` ${result.cmd.file ? result.cmd.file : ''} ${result.type}`);
 						resolve(result);
 					} else {
@@ -101,7 +101,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
 
 				peer.on('error', e => {
 					clearTimeout(peer.sendTimer);
-					log.error(`sender ${peer.channelName} peer ${dest} error`);
+					log.error(`sender ${peer.channelId} peer ${dest} error`);
 					peer.destroy();
 					reject(e);
 				});
@@ -178,7 +178,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
 				result = await doCommand(dest, qEntry);
 			} catch (e) {
 				e.cmd = e.cmd ? e.cmd : qEntry;
-				log.info(`sender ${e.channelName}: ${e.cmd.action ? e.cmd.action : e.cmd} ${dest}`
+				log.info(`sender ${e.channelId}: ${e.cmd.action ? e.cmd.action : e.cmd} ${dest}`
           + ` ${e.cmd.file ? e.cmd.file : ''} ${e.code}  ${e.message == undefined ? '' : e.message}`);
 				if( errorHandler(e) == 'BREAK') {
 					break; //stop updating group members
