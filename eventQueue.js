@@ -20,11 +20,9 @@ class EventQueue {
 	}
   
 	push(i) {
-		log.debug('enqueue', JSON.stringify(i));
 		this.#a.push(i);
 
 		if(this.#cmdProcessor != null && this.#handlerRunning == false) {
-			log.debug('this.processQ()', i.file);
 			this.#eventLoop();
 		}
     

@@ -15,7 +15,7 @@ function sendTimeout(peer) {
 	);
 }
 
-function sender({PeerConnection, eventQueue, brumeData}) {
+function sender({brumeConnection, eventQueue, brumeData}) {
 	let {baseDir, groupInfo, thisUser} = brumeData;
     
 	function errorHandler(err) {
@@ -27,7 +27,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
 				return 'BREAK';
   
 			case 'ENODEST':
-				log.warn(`sender ${err.channelId}: ${err.peerName} not connected`);
+				log.warn(`sender ${err.channelId}: ${err.peerUsername} not connected`);
 				if(['add', 'change', 'unlink'].includes(err.cmd.action)) {
 					let fileOwner = err.cmd.file.split('/')[0];
 					if(fileOwner == err.peerName || fileOwner == thisUser) {
@@ -65,7 +65,7 @@ function sender({PeerConnection, eventQueue, brumeData}) {
 				break;
 
 			case 'ERMPATH':
-			case 'ETIMEOUT':
+			case 'EOFFERTIMEOUT':
 				break;
   
 			default:
@@ -76,10 +76,8 @@ function sender({PeerConnection, eventQueue, brumeData}) {
 
 	function doCommand(dest, cmd){
 		return new Promise(async (resolve, reject) => {
-			let peerConnection = new PeerConnection('sender'),
-				peer = null;
+			let peer = await brumeConnection.makePeer({initiator: true});
 			try {
-				peer = await peerConnection.open(dest);
 				log.info(`sender ${peer.channelId}: ${cmd.action} ${dest} ${cmd.group != undefined ? cmd.group : ''}`
           + ` ${cmd.file != undefined ? cmd.file : ''}`);
 
@@ -99,17 +97,20 @@ function sender({PeerConnection, eventQueue, brumeData}) {
 					clearTimeout(peer.sendTimer);
 				});
 
-				peer.on('error', e => {
+				//peer.on('error', e => {
+				peer.on('peerError', e => {
 					clearTimeout(peer.sendTimer);
-					log.error(`sender ${peer.channelId} peer ${dest} error`);
 					peer.destroy();
 					reject(e);
 				});
 
 				peer.on('timeout', e => {
+					e.channelId = peer.channelId;
 					peer.destroy();
 					reject(e);
 				});
+
+				await peer.connect(dest);
 
 				switch(cmd.action) {
 					case 'unlink':
@@ -178,8 +179,6 @@ function sender({PeerConnection, eventQueue, brumeData}) {
 				result = await doCommand(dest, qEntry);
 			} catch (e) {
 				e.cmd = e.cmd ? e.cmd : qEntry;
-				log.info(`sender ${e.channelId}: ${e.cmd.action ? e.cmd.action : e.cmd} ${dest}`
-          + ` ${e.cmd.file ? e.cmd.file : ''} ${e.code}  ${e.message == undefined ? '' : e.message}`);
 				if( errorHandler(e) == 'BREAK') {
 					break; //stop updating group members
 				}

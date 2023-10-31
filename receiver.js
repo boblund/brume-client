@@ -42,18 +42,17 @@ function brumeError(code,message) {
 	return {type: 'ERROR', error: {code, message}};
 }
 
-function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
+function receiver({brumeConnection, brumeData, eventQueue, networkEvents}) {
 	let {baseDir, thisUser, groupInfo, fileData} = brumeData;
 
-	function offerProcessor(offer, src) {
+	brumeConnection.offerHandler = function (offer, src, channelId) {
 		return new Promise(async (resolve , reject) => {
-			let peerConnection = new PeerConnection('receiver')
-				,peer;
+			let peer = await brumeConnection.makePeer({channelId});	
 
 			try {
-				peer = await (peerConnection.open)(src, offer);
+				await peer.connect(src, offer);
 			} catch(e) {
-				e.peer.destroy();
+				peer.destroy();
 				//if(peer != undefined) peer.destroy()
 				reject(e);
 				return;
@@ -269,9 +268,8 @@ function receiver({PeerConnection, brumeData, eventQueue, networkEvents}) {
 				resolve();
 			});
 		});
-	}
+	};
 
-	PeerConnection.offerProcessor = offerProcessor;
 }
 
 module.exports = receiver;

@@ -1,20 +1,23 @@
 #!/usr/bin/env node
 "use strict";
 
+import fs from 'fs';
+import jwt from 'jsonwebtoken';
+import mdnsResolver from 'mdns-resolver';
+import BrumeData from './BrumeData.js';
+import EventQueue from './eventQueue.js';
+import FileWatcher from './fileWatcher.js';
+import NetworkEvents from './networkEvents.js';
+import log from './logger.js';
+import sender from "./sender.js";
+import receiver from "./receiver.js";
+import cognitoAuth from './cognitoAuth.js';
+
 const
 	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
-	{readFileSync, writeFileSync} = require('fs'),
-	jwt = require('jsonwebtoken'),
-	{resolve4} = require('mdns-resolver'),
-	BrumeData = require('./BrumeData'),
-	EventQueue = require('./eventQueue.js'),
-	FileWatcher = require('./fileWatcher.js'),
-	NetworkEvents = require('./networkEvents'),
-	log = require('./logger.js'),
-	sender = require("./sender.js"),
-	receiver = require("./receiver.js"),
-	createWebsocket = require('./websocket.js'),
-	{refreshTokenAuth} = require('./cognitoAuth.js'),
+	{readFileSync, writeFileSync} = fs,
+	{resolve4} = mdnsResolver,
+	{refreshTokenAuth} = cognitoAuth,
 	baseDir = process.env.BRUME_FILES ? process.env.BRUME_FILES : process.env.HOME+"/Brume/",
 	configFile = process.argv.length == 3
 		? process.argv[2]
@@ -22,14 +25,11 @@ const
 			? process.env.BRUME_CONFIG
 			: process.env.HOME+'/Brume/brume.conf';
 
-
 var 
-	fileWatcher = null,
-	PeerConnection;
-
-const initPeerConnection = require('./PeerConnection.js');
+	fileWatcher = null;
 
 (async function brumeStart(reason) {
+	const {BrumePeer} =  await import('./brumePeer.mjs');
 	let config;
 	try {
 		config = JSON.parse(readFileSync(configFile, 'utf-8'));
@@ -66,21 +66,12 @@ const initPeerConnection = require('./PeerConnection.js');
 				: await new Promise(res=>{resolve4(addr).then(res).catch(()=>{res(addr);});})
 			) + port
 			: config.url;
-		//config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : config.url;
 	}
 
-	var ws;
+	let brumeConnection;
 	try {
-		ws = await createWebsocket(config.url, config.token);
-
-		ws.on('serverclose', function() {
-			log.info('ws server close');
-			ws = null;
-			setTimeout(()=>{brumeStart('serverclose');}, 10*1000);  //give server time to delete closed session
-		});
-
+		brumeConnection = await (new BrumePeer(thisUser, config.token, config.url, brumeStart));
 		log.info('connected to Brume server ' + config.url);
-		PeerConnection = initPeerConnection(ws, thisUser);
 
 		if(reason != 'serverclose') {
 			const
@@ -89,8 +80,8 @@ const initPeerConnection = require('./PeerConnection.js');
 				brumeData = new BrumeData({thisUser, baseDir, eventQueue, networkEvents});
 
 			fileWatcher	= new FileWatcher({brumeData, eventQueue, networkEvents});
-			receiver({PeerConnection, brumeData, eventQueue, networkEvents});
-			eventQueue.setCmdProcessor(sender({PeerConnection, eventQueue, brumeData}));
+			receiver({brumeConnection, brumeData, eventQueue, networkEvents});
+			eventQueue.setCmdProcessor(sender({brumeConnection, eventQueue, brumeData}));
 		}
 	} catch (err) {
 		let code = err.code ? err.code : JSON.parse(err.message.match('.*:[ ]+\(.*\)')[1]);
