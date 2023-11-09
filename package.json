@@ -2,7 +2,7 @@
   "name": "brume",
   "version": "1.0.0",
   "description": "webrtc shared files",
-  "main": " ",
+  "main": "Brume.mjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
@@ -26,7 +26,6 @@
     "mdns-resolver": "^1.1.0",
     "node-notifier": "^10.0.1",
     "simple-peer": "^9.11.1",
-    "watch": "^1.0.2",
-    "wrtc": "^0.4.7"
+    "watch": "^1.0.2"
   }
 }
