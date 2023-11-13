@@ -1,10 +1,9 @@
-import {Brume} from './Brume.mjs';
-import log from './logger.js';
+import {Brume, log} from './Brume.mjs';
 
 function delay(msec){
 	return new Promise(res => {
 		setTimeout(() => res(), msec);
-	})
+	});
 }
 
 const configFile = process.argv.length == 3
@@ -14,17 +13,29 @@ const configFile = process.argv.length == 3
 		: process.env.HOME+'/Brume/brume.conf';
 		
 (async function () {
+	let notdone = true;
 	try {
 		const brume = new Brume(configFile);
+		brume.on('serverclose', () => {
+			log.info('server restart');
+			setTimeout(async ()=>{ await brume.start(); }, 10*1000);
+		});
+
+		brume.on('error', e => {
+			notdone = false;
+			log.error(JSON.stringify(e));
+		});
+
 		await brume.start();
-		console.log(`${brume.thisUser} connected to Brume server`);
+		log.info(`${brume.thisUser} connected to Brume server`);
 		const peer = await brume.connect('alice');
-		while(true){
-			log.info(`send message`);
+		while(notdone){
 			peer.write(JSON.stringify({type: 'message', value: 'howdy'}));
+			log.info(`sent message`);
 			await delay(10 * 60 * 1000);
 		}
 	} catch(e){
-		console.error(e.message);
+		log.error(e.message);
 	}
+	process.exit(0);
 })();

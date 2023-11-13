@@ -1,5 +1,4 @@
-import {Brume} from './Brume.mjs';
-import log from './logger.js';
+import {Brume, log} from './Brume.mjs';
 
 const configFile = process.argv.length == 3
 	? process.argv[2]
@@ -10,8 +9,13 @@ const configFile = process.argv.length == 3
 (async function () {
 	try{
 		const brume = new Brume(configFile);
+		brume.on('serverclose', () => {
+			log.info('server restart');
+			setTimeout(async ()=>{ await brume.start(); }, 10*1000);
+		});
+		brume.on('error', e => { log.error(JSON.stringify(e)); });
 		await brume.start();
-		console.log(`${brume.thisUser} connected to Brume server`);
+		log.info(`${brume.thisUser} connected to Brume server`);
 		brume.onconnection = (peer) => {
 			peer.on('data', data => {
 				log.info(data.toString());
