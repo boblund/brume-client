@@ -61,11 +61,13 @@ class Brume{
 	#ws = undefined;
 	#peers = {};
 	#config = undefined;
+	#configFile = undefined;
 	#offerProcessor;
 	#connectionQ;
 
 	constructor(configFile){
 		try {
+			this.#configFile = configFile;
 			this.#config = JSON.parse(readFileSync(configFile, 'utf-8'));
 			if(!this.#config.token || !this.#config.url) throw('token or url not set');
 			this.#config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : this.#config.url;
@@ -73,29 +75,6 @@ class Brume{
 			this.#config.token = this.#config.token;
 			this.#user = jwt.decode(this.#config.token)['custom:brume_name'];
 			this.#connectionQ = new Channel;
-	
-			return new Promise(async(res, rej) => {
-				try {
-					await this.#openWs({token: this.#config.token, url: this.#config.url});
-					//eventOfferHandler needs 'this' to be Brume instance not ws instance that does emit
-					this.#ws.on('offer', (offer, from, channelId)=>{this.#offerEventHandler(offer, from, channelId);});
-					res(this);
-				} catch(e) {
-					if(e?.code && e.code == '401'){
-						log.info('reauthorize');
-						try{
-							let {IdToken} = await refreshTokenAuth(CLIENTID, this.#config.RefreshToken);
-							this.#config.token = IdToken;
-							writeFileSync(configFile, JSON.stringify(this.#config));
-							await this.#openWs({token: this.#config.token, url: this.#config.url});
-							res(this);				
-						} catch(e) {
-							rej(e);
-						}
-					}
-					rej(e);
-				}
-			});
 		} catch(e) {
 			log.error(`Brume: config error "${e.message}"`);
 			throw(e);
@@ -103,31 +82,6 @@ class Brume{
 	}
 
 	get thisUser() { return this.#user; }
-
-	async #offerEventHandler(offer, from, channelId) {
-		const peer = await new Promise((res, rej) => {
-			const peer = new SimplePeer({channelId, trickle: false, wrtc: wrtc});
-			this.#peers[channelId] = peer;
-			log.info(`connection this.#peers: ${Object.keys(this.#peers)}`);
-			peer.channelId = channelId;
-			peer.signal(offer);
-			peer.peerUsername = from;
-	
-			peer.on('signal', data => {
-				const msg = data.candidate ? {type: 'candidate', candidate: data} : {type: data.type, data};
-				msg.channelId = peer.channelId;
-				this.#ws.send(JSON.stringify({ action: 'send', to: from, data: msg }));
-			});
-	
-			peer.on('connect', () => { res(peer); });
-			peer.on('error', (e) => { rej(e); });
-			peer.on('close', () => {
-				log.info(`connection onclose peer closed: ${peer.channelId}`);
-				delete this.#peers[peer.channelId];
-			});
-		});
-		this.#offerProcessor ? this.#offerProcessor(peer) : this.#connectionQ.send(peer);
-	};
 
 	async #openWs({token, url}){
 		this.#ws = await wsConnect({token, url});
@@ -164,17 +118,62 @@ class Brume{
 			log.info(`server close: ${code}`);
 			//if(code == 1006){
 				//1006 is AWS WS close
-				setTimeout(async ()=>{
-					await this.#openWs({token, url});
-					this.#ws.on('offer', (offer, from, channelId)=>{this.#offerEventHandler(offer, from, channelId);});
-				}, 10*1000);  //give server time to delete closed session
+				setTimeout(async ()=>{ await this.start(); }, 10*1000);  //give server time to delete closed session
 			//}
 			clearInterval(pingInterval);
-			this.#ws = null;
+			this.stop();
 		});
 	}
 	
 	set onconnection(func){ this.#offerProcessor = func; }
+
+	start(){
+		return new Promise(async (res, rej) => {
+			try {
+				let peer = undefined;
+				await this.#openWs({token: this.#config.token, url: this.#config.url});
+				this.#ws.on('offer', (offer, from, channelId)=>{
+					peer = new SimplePeer({channelId, trickle: false, wrtc: wrtc});
+					this.#peers[channelId] = peer;
+					log.info(`connection this.#peers: ${Object.keys(this.#peers)}`);
+					peer.channelId = channelId;
+					peer.signal(offer);
+					peer.peerUsername = from;
+			
+					peer.on('signal', data => {
+						const msg = data.candidate ? {type: 'candidate', candidate: data} : {type: data.type, data};
+						msg.channelId = peer.channelId;
+						this.#ws.send(JSON.stringify({ action: 'send', to: from, data: msg }));
+					});
+			
+					peer.on('connect', () => { res(peer); });
+					peer.on('error', (e) => { rej(e); });
+					peer.on('close', () => {
+						log.info(`connection onclose peer closed: ${peer.channelId}`);
+						delete this.#peers[peer.channelId];
+					});
+					this.#offerProcessor ? this.#offerProcessor(peer) : this.#connectionQ.send(peer);
+				});
+				res(this);
+			} catch(e) {
+				if(e?.code && e.code == '401'){
+					log.info('reauthorize');
+					try{
+						let {IdToken} = await refreshTokenAuth(CLIENTID, this.#config.RefreshToken);
+						this.#config.token = IdToken;
+						writeFileSync(this.#configFile, JSON.stringify(this.#config));
+						await this.#openWs({token: this.#config.token, url: this.#config.url});
+						res(this);				
+					} catch(e) {
+						rej(e);
+					}
+				}
+				rej(e);
+			}
+		});
+	}
+
+	stop(){ this.#ws = null; }
 
 	async connection(){
 		if(this.#offerProcessor) return null;

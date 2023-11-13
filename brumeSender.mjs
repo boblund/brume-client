@@ -15,7 +15,9 @@ const configFile = process.argv.length == 3
 		
 (async function () {
 	try {
-		const brume = await (new Brume(configFile));
+		const brume = new Brume(configFile);
+		await brume.start();
+		console.log(`${brume.thisUser} connected to Brume server`);
 		const peer = await brume.connect('alice');
 		while(true){
 			log.info(`send message`);

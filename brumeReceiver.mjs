@@ -9,7 +9,9 @@ const configFile = process.argv.length == 3
 		
 (async function () {
 	try{
-		const brume = await new Brume(configFile);
+		const brume = new Brume(configFile);
+		await brume.start();
+		console.log(`${brume.thisUser} connected to Brume server`);
 		brume.onconnection = (peer) => {
 			peer.on('data', data => {
 				log.info(data.toString());
