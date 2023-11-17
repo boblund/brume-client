@@ -5,9 +5,8 @@ import jwt from 'jsonwebtoken';
 import SimplePeer from 'simple-peer';
 import {Channel} from 'https://boblund.github.io/js-caf/Channel.mjs';
 import cognitoAuth from './cognitoAuth.js';
-import {log} from './logger.mjs';
 
-export {Brume, log};
+export {Brume};
 
 if(typeof window == 'undefined') {
 	global.Websocket = (await import('ws')).default;
@@ -109,9 +108,13 @@ class Brume extends EventEmitter {
 		});
 
 		this.#ws.on('close', (code) => {
+			if(this.listeners('serverclose').length == 0) {
+				setTimeout(async ()=>{ await this.start(); }, 10*1000);  //give server time to delete closed session
+			} else {
+				this.emit('serverclose');
+			}
 			clearInterval(pingInterval);
 			this.stop();
-			this.emit('serverclose');
 		});
 	}
 
@@ -151,7 +154,7 @@ class Brume extends EventEmitter {
 				peer.on('close', () => { delete this.#peers[peer.channelId]; });
 			});
 		} catch(e) {
-			this.emit('error', e)//throw(e);
+			throw(e);
 		}
 	}
 
