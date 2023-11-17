@@ -13,10 +13,10 @@ const configFile = process.argv.length == 3
 (async function () {
 	try{
 		const brume = new Brume(configFile);
-		brume.on('serverclose', () => {
+		/*brume.on('serverclose', () => {
 			log('server restart');
 			setTimeout(async ()=>{ await brume.start(); }, 10*1000);
-		});
+		});*/
 		brume.on('error', e => { log.error(JSON.stringify(e)); });
 		await brume.start();
 		log(`${brume.thisUser} connected to Brume server`);
