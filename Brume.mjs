@@ -1,19 +1,24 @@
-import {readFileSync, writeFileSync} from 'fs';
-import EventEmitter from 'events';
-import wrtc from '@koush/wrtc';
-import jwt from 'jsonwebtoken';
-import SimplePeer from 'simple-peer';
-import {Channel} from 'https://boblund.github.io/js-caf/Channel.mjs';
-import cognitoAuth from './cognitoAuth.js';
-
 export {Brume};
 
+const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }};
+let wrtc, EventEmitter, SimplePeer, Channel, refreshTokenAuth;
+
 if(typeof window == 'undefined') {
-	global.Websocket = (await import('ws')).default;
+	({refreshTokenAuth} = await import('./cognitoAuth.mjs'));
+	//EventEmitter = (await import('./node_modules/events/events.js')).default;
+	//SimplePeer = (await import('./node_modules/simple-peer/index.js')).default;
+	EventEmitter = (await import('events')).default;
+	SimplePeer = (await import('simple-peer')).default;
+	({Channel} = await import('Channel'));
+	wrtc = (await import('@koush/wrtc')).default;
+	global.WebSocket = (await import('ws')).default;
+} else {
+	EventEmitter = require('/node_modules/events/events.js');
+	SimplePeer = require('/node_modules/simple-peer/simplepeer.min.js');
+	({Channel} = await import('/node_modules/Channel/Channel.mjs'));
 }
 
 const	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
-	{refreshTokenAuth} = cognitoAuth,
 	errorCodeMessages = {
 		400: 'Missing token',
 		401: 'Unauthorized',
@@ -33,17 +38,20 @@ const	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
 
 function wsConnect({token, url}) {
 	return new Promise((res, rej) => {	
-		let ws = new Websocket(url, {
-			headers : { token },
-			rejectUnauthorized: false
-		});
+		let ws = typeof window == undefined
+			? new WebSocket(url, { headers : { token }, rejectUnauthorized: false })
+			: new WebSocket(`${url}?token=${token}`);
 
 		//ws.on('pong', ()=>{});
 		ws.onopen = () => { res(ws); };
 
 		ws.onerror = err => {
 			// make codes recognize: ECONNREFUSED, ENOTFOUND in err.message
-			const code = err.message.match(/: (\d*)/) ? err.message.match(/: (\d*)/)[1] : undefined;
+			const code = err?.message
+				? err?.message.match(/: (\d*)/) 
+					? err.message.match(/: (\d*)/)[1]
+					: undefined
+				: undefined;
 			rej(code && errorCodeMessages[code] ? {message:`${errorCodeMessages[code]} ${code}`, code} : err);
 		};
 
@@ -61,19 +69,16 @@ class Brume extends EventEmitter {
 	#ws = undefined;
 	#peers = {};
 	#config = undefined;
-	#configFile = undefined;
 	#offerProcessor;
 	#connectionQ;
 
-	constructor(configFile){
+	constructor(config){
 		super();
 		try {
-			this.#configFile = configFile;
-			this.#config = JSON.parse(readFileSync(configFile, 'utf-8'));
-			if(!this.#config.token || !this.#config.url) throw('token or url not set');
-			this.#config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : this.#config.url;
-			this.#config.token = this.#config.token;
-			this.#user = jwt.decode(this.#config.token)['custom:brume_name'];
+			if(config){
+				this.#config = config;
+				this.#user = jwt.decode(config.token)['custom:brume_name'];
+			}
 			this.#connectionQ = new Channel;
 		} catch(e) { throw(e); }
 	}
@@ -81,11 +86,14 @@ class Brume extends EventEmitter {
 	async #openWs({token, url}){
 		this.#ws = await wsConnect({token, url});
 		const pingInterval = setPingInterval(this.#ws);
-		this.#ws.on('message', msg=>{
-			const {from, channelId, data} = JSON.parse(msg);
+
+		//this.#ws.on('message',  msg=>{
+		this.#ws.addEventListener('message',  msg=>{
+			const {from, channelId, data} = JSON.parse(msg.data);
 			switch (data.type) {
 				case 'offer':
-					this.#ws.emit('offer', data, from, channelId);
+					//this.#ws.emit('offer', data, from, channelId);
+					this.emit('offer', data, from, channelId);
 					break;
 	
 				case 'candidate':
@@ -107,7 +115,7 @@ class Brume extends EventEmitter {
 			}
 		});
 
-		this.#ws.on('close', (code) => {
+		this.#ws.addEventListener('close', (event) => {
 
 			if(this.listeners('serverclose').length == 0) {
 				setTimeout(async ()=>{ await this.start(); }, 10*1000);  //give server time to delete closed session
@@ -123,13 +131,19 @@ class Brume extends EventEmitter {
 	get thisUser() { return this.#user; }
 	set onconnection(func){ this.#offerProcessor = func; }
 
-	start(){
+	start(config = undefined){ // browser Brume doesn't have config until start
+		if(config){
+			// config sometimes not fully specified in Brume constructor
+			this.#config = config;
+			this.#user = jwt.decode(config.token)['custom:brume_name'];
+		}
 		return new Promise(async (res, rej) => {
 			try {
 				let peer = undefined;
 				await this.#openWs({token: this.#config.token, url: this.#config.url});
-				this.#ws.on('offer', (offer, from, channelId)=>{
-					peer = new SimplePeer({channelId, trickle: false, wrtc: wrtc});
+
+				this.addListener('offer', (offer, from, channelId)=>{
+					peer = new SimplePeer({channelId, trickle: false, wrtc});
 					this.#peers[channelId] = peer;
 					peer.channelId = channelId;
 					peer.signal(offer);
@@ -154,7 +168,7 @@ class Brume extends EventEmitter {
 					try{
 						let {IdToken} = await refreshTokenAuth(CLIENTID, this.#config.RefreshToken);
 						this.#config.token = IdToken;
-						writeFileSync(this.#configFile, JSON.stringify(this.#config));
+						this.emit('reauthorize', this.#config);
 						await this.#openWs({token: this.#config.token, url: this.#config.url});
 						res(this);				
 					} catch(e) {
@@ -175,7 +189,8 @@ class Brume extends EventEmitter {
 	}
 	
 	async connect(dest){
-		const peer = new SimplePeer({initiator: true, trickle: false, wrtc: wrtc});
+		const peer = new SimplePeer({initiator: true, trickle: false, wrtc});
+		peer.peerUsername = dest;
 		peer.channelId = this.#user + Math.random().toString(10).slice(2,8);
 		this.#peers[peer.channelId] = peer;
 		try{

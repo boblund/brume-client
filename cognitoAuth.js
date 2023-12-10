@@ -1,6 +1,6 @@
 "use strict";
 
-const AWS = require('aws-sdk');
+//const AWS = require('aws-sdk');
 const {CognitoIdentityServiceProvider} = AWS;
 AWS.config.region = 'us-east-1';
 const CISP = new CognitoIdentityServiceProvider();
