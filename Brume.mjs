@@ -201,7 +201,7 @@ class Brume extends EventEmitter {
 					peer.offerTimer = setTimeout(()=>{
 						peer.emit('peerError', { code: "EOFFERTIMEOUT", peerUsername: dest });
 						delete this.#peers[peer.channelId];
-					}, 600 * 1000);
+					}, 6 * 1000);
 					this.#ws.send(JSON.stringify({ action: 'send', to: dest, data: {channelId: peer.channelId, data} }));
 				});
 
@@ -210,7 +210,7 @@ class Brume extends EventEmitter {
 				peer.on('peerError', ({code, peerUsername}) => {
 					clearTimeout(peer.offerTimer);
 					delete this.#peers[peer.channelId];
-					rej({code: code, peerUsername, type: 'peerError', message: `${peerUsername} not connected`});
+					rej({code: code, peerUsername, type: 'peerError', message: `${peerUsername} connection request timeout`});
 				});
 
 				peer.on('close', () => { delete this.#peers[peer.channelId]; });
