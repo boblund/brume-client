@@ -1,22 +1,20 @@
 export {Brume};
 
 const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }};
-let wrtc, EventEmitter, SimplePeer, Channel, refreshTokenAuth;
 
+import {EventEmitter} from 'events';
+import SimplePeer  from 'simple-peer';
+import {Channel} from 'Channel';
+//const {SimplePeer} = pkg;
+
+/// #if !WEBPACK
+let wrtc, refreshTokenAuth;
 if(typeof window == 'undefined') {
 	({refreshTokenAuth} = await import('./cognitoAuth.mjs'));
-	//EventEmitter = (await import('./node_modules/events/events.js')).default;
-	//SimplePeer = (await import('./node_modules/simple-peer/index.js')).default;
-	EventEmitter = (await import('events')).default;
-	SimplePeer = (await import('simple-peer')).default;
-	({Channel} = await import('Channel'));
 	wrtc = (await import('@koush/wrtc')).default;
 	global.WebSocket = (await import('ws')).default;
-} else {
-	EventEmitter = require('/node_modules/events/events.js');
-	SimplePeer = require('/node_modules/simple-peer/simplepeer.min.js');
-	({Channel} = await import('/node_modules/Channel/Channel.mjs'));
 }
+/// #endif
 
 const	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
 	errorCodeMessages = {
