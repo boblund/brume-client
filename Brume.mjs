@@ -2,19 +2,32 @@ export {Brume};
 
 const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }};
 
-import {EventEmitter} from 'events';
-import SimplePeer  from 'simple-peer';
-import {Channel} from 'Channel';
-//const {SimplePeer} = pkg;
+/// #if WEBPACK
 
-/// #if !WEBPACK
-let wrtc, refreshTokenAuth;
-if(typeof window == 'undefined') {
+// #code import {EventEmitter} from 'events'; //webpack/fileGroup
+// #code import SimplePeer  from 'simple-peer';
+// #code import {Channel} from 'Channel';
+
+/// #else
+
+let wrtc, EventEmitter, SimplePeer, Channel, refreshTokenAuth;
+
+if(typeof window == 'undefined') { // node js
 	({refreshTokenAuth} = await import('./cognitoAuth.mjs'));
+	EventEmitter = (await import('events')).default;
+	SimplePeer = (await import('simple-peer')).default;
+	({Channel} = await import('Channel'));
 	wrtc = (await import('@koush/wrtc')).default;
 	global.WebSocket = (await import('ws')).default;
+} else { // non-webpack browser
+	require('./brume-elements.mjs');
+	EventEmitter = require('/node_modules/events/events.js');
+	SimplePeer = require('/node_modules/simple-peer/simplepeer.min.js');
+	({Channel} = await import('/node_modules/Channel/Channel.mjs'));
 }
+
 /// #endif
+
 
 const	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
 	errorCodeMessages = {
