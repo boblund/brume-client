@@ -12,15 +12,14 @@ const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }};
 
 let wrtc, EventEmitter, SimplePeer, Channel, refreshTokenAuth;
 
-if(typeof window == 'undefined') { // node js
+if(typeof window == 'undefined') {
 	({refreshTokenAuth} = await import('./cognitoAuth.mjs'));
 	EventEmitter = (await import('events')).default;
 	SimplePeer = (await import('simple-peer')).default;
 	({Channel} = await import('Channel'));
 	wrtc = (await import('@koush/wrtc')).default;
 	global.WebSocket = (await import('ws')).default;
-} else { // non-webpack browser
-	require('./brume-elements.mjs');
+} else {
 	EventEmitter = require('/node_modules/events/events.js');
 	SimplePeer = require('/node_modules/simple-peer/simplepeer.min.js');
 	({Channel} = await import('/node_modules/Channel/Channel.mjs'));
