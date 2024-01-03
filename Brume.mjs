@@ -20,6 +20,7 @@ if(typeof window == 'undefined') {
 	wrtc = (await import('@koush/wrtc')).default;
 	global.WebSocket = (await import('ws')).default;
 } else {
+	await import('/node_modules/browser-cjs/require.js');
 	EventEmitter = require('/node_modules/events/events.js');
 	SimplePeer = require('/node_modules/simple-peer/simplepeer.min.js');
 	({Channel} = await import('/node_modules/Channel/Channel.mjs'));
@@ -143,7 +144,6 @@ class Brume extends EventEmitter {
 
 	start(config = undefined){ // browser Brume doesn't have config until start
 		if(config){
-			// config sometimes not fully specified in Brume constructor
 			this.#config = config;
 			this.#user = jwt.decode(config.token)['custom:brume_name'];
 		}
@@ -152,8 +152,8 @@ class Brume extends EventEmitter {
 				let peer = undefined;
 				await this.#openWs({token: this.#config.token, url: this.#config.url});
 
-				this.addListener('offer', (offer, from, channelId)=>{
-					peer = new SimplePeer({channelId, trickle: false, wrtc});
+				this.addListener('offer', async (offer, from, channelId)=>{
+					peer = new SimplePeer({channelId, trickle: false, ...(typeof wrtc != 'undefined' ? {wrtc} : {})});
 					this.#peers[channelId] = peer;
 					peer.channelId = channelId;
 					peer.signal(offer);
@@ -170,7 +170,8 @@ class Brume extends EventEmitter {
 					peer.on('close', () => {
 						delete this.#peers[peer.channelId];
 					});
-					this.#offerProcessor ? this.#offerProcessor(peer) : this.#connectionQ.send(peer);
+					await this.#offerProcessor ? this.#offerProcessor(peer) : this.#connectionQ.send(peer);
+
 				});
 				res(this);
 			} catch(e) {
@@ -199,7 +200,7 @@ class Brume extends EventEmitter {
 	}
 	
 	async connect(dest){
-		const peer = new SimplePeer({initiator: true, trickle: false, wrtc});
+		const peer = new SimplePeer({initiator: true, trickle: false, ...(typeof wrtc != 'undefined' ? {wrtc} : {})});
 		peer.peerUsername = dest;
 		peer.channelId = this.#user + Math.random().toString(10).slice(2,8);
 		this.#peers[peer.channelId] = peer;
