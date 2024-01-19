@@ -98,17 +98,22 @@ class Brume extends EventEmitter {
 		this.#ws = await wsConnect({token, url});
 		const pingInterval = setPingInterval(this.#ws);
 
-		//this.#ws.on('message',  msg=>{
 		this.#ws.addEventListener('message',  msg=>{
 			const {from, channelId, data} = JSON.parse(msg.data);
 			switch (data.type) {
 				case 'offer':
-					//this.#ws.emit('offer', data, from, channelId);
-					this.emit('offer', data, from, channelId);
+					if(this.#peers[channelId]) {
+						// offer resulted from renegotiate sent by this existing peer
+						this.#peers[channelId].signal(data);
+ 					} else {
+						// new offer requirung 
+						this.emit('offer', data, from, channelId);
+					}
 					break;
 	
 				case 'candidate':
 				case 'answer':
+				case 'renegotiate':
 					if(data.type == 'answer'){
 						clearTimeout(this.#peers[channelId]?.offerTimer);
 					}
@@ -137,7 +142,7 @@ class Brume extends EventEmitter {
 			clearInterval(pingInterval);
 			this.stop();
 		});
-	}
+	};
 
 	get thisUser() { return this.#user; }
 	set onconnection(func){ this.#offerProcessor = func; }
@@ -156,7 +161,6 @@ class Brume extends EventEmitter {
 					peer = new SimplePeer({channelId, trickle: false, ...(typeof wrtc != 'undefined' ? {wrtc} : {})});
 					this.#peers[channelId] = peer;
 					peer.channelId = channelId;
-					peer.signal(offer);
 					peer.peerUsername = from;
 			
 					peer.on('signal', data => {
@@ -165,15 +169,18 @@ class Brume extends EventEmitter {
 						this.#ws.send(JSON.stringify({ action: 'send', to: from, data: msg }));
 					});
 			
-					peer.on('connect', () => { res(peer); });
 					peer.on('error', (e) => { rej(e); });
-					peer.on('close', () => {
-						delete this.#peers[peer.channelId];
-					});
-					await this.#offerProcessor ? this.#offerProcessor(peer) : this.#connectionQ.send(peer);
-
+					peer.on('close', () => { delete this.#peers[peer.channelId]; });
+					let rVal = { // use instead of peer for offerProcessor
+						peer,
+						async accept(){
+							peer.signal(offer);
+							return await new Promise(res => { peer.on('connect', ()=>{ res(); }); });
+						}
+					};
+					await this.#offerProcessor ? this.#offerProcessor(rVal) : this.#connectionQ.send(rVal);
 				});
-				res(this);
+				res();
 			} catch(e) {
 				if(e?.code && e.code == '401'){
 					try{
