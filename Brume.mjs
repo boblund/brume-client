@@ -192,8 +192,9 @@ class Brume extends EventEmitter {
 					} catch(e) {
 						rej(e);
 					}
+				} else {
+					rej(e);
 				}
-				rej(e);
 			}
 		});
 	}
