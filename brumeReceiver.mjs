@@ -35,11 +35,10 @@ const url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : config.url;
 
 		await brume.start();
 		log(`${brume.thisUser} connected to Brume server`);
-		brume.onconnection = (peer) => {
-			peer.on('data', data => {
-				log(data.toString());
-			});
+		brume.onconnection = async ({peer, accept}) => {
+			peer.on('data', data => { log(data.toString()); });
 			peer.on('closed', () => { log(`peer closed`); });
+			await accept(); //accept connection
 		};
 	}catch(e){
 		log(`error: ${e.message}`);

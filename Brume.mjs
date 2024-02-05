@@ -1,6 +1,7 @@
 export {Brume};
 
-const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }};
+const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }},
+	OFFERTIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 /// #if WEBPACK
 
@@ -220,7 +221,7 @@ class Brume extends EventEmitter {
 					peer.offerTimer = setTimeout(()=>{
 						peer.emit('peerError', { code: "EOFFERTIMEOUT", peerUsername: dest });
 						delete this.#peers[peer.channelId];
-					}, 6 * 1000);
+					}, OFFERTIMEOUT);
 					this.#ws.send(JSON.stringify({ action: 'send', to: dest, data: {channelId: peer.channelId, data} }));
 				});
 
