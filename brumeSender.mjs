@@ -17,8 +17,8 @@ const configFile = process.argv.length == 3
 		? process.env.BRUME_CONFIG
 		: process.env.HOME+'/Brume/brume.conf';
 
-const config = JSON.parse(readFileSync(configFile, 'utf-8')),
-	url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : config.url;
+const config = JSON.parse(readFileSync(configFile, 'utf-8'));
+config.url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.occams.solutions/Prod';
 		
 (async function () {
 	let notdone = true;
@@ -43,7 +43,7 @@ const config = JSON.parse(readFileSync(configFile, 'utf-8')),
 
 		await brume.start();
 		log(`${brume.thisUser} connected to Brume server`);
-		const peer = await brume.connect(brume.thisUser == 'sam' ? 'alice' : 'sam');
+		const peer = await brume.connect(brume.thisUser == 'sam' ? 'joe' : 'sam');
 		while(notdone){
 			peer.write(JSON.stringify({type: 'message', value: 'howdy'}));
 			log(`sent message`);
