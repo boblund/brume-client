@@ -36,7 +36,7 @@ config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.
 		await brume.start();
 		log(`${brume.thisUser} connected to Brume server`);
 		brume.onconnection = async ({peer, accept}) => {
-			peer.on('data', data => { log(data.toString()); peer.destroy(); });
+			peer.on('data', data => { log(JSON.stringify(data)); peer.destroy(); });
 			peer.on('closed', () => { log(`peer closed`); process.exit(0); });
 			peer.on('error', ( e ) => { log(`peer error`); });
 			await accept(); //accept connection

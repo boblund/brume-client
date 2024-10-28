@@ -48,7 +48,7 @@ config.url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume
 		peer.on('closed', () => { log(`peer closed`); notdone = false;});
 		peer.on('error', ( e ) => { log(`peer error`); });
 		while(notdone){
-			peer.write(JSON.stringify({type: 'message', value: 'howdy'}));
+			peer.write({type: 'message', data: 'howdy'});
 			log(`sent message`);
 			await delay(10 * 1000);
 		}
