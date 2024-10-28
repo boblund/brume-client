@@ -12,7 +12,7 @@ const configFile = process.argv.length == 3
 		: process.env.HOME+'/Brume/brume.conf';
 	
 const config = JSON.parse(readFileSync(configFile, 'utf-8'));
-const url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : config.url;
+config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.occams.solutions/Prod';
 
 (async function () {
 	try{
@@ -36,8 +36,9 @@ const url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : config.url;
 		await brume.start();
 		log(`${brume.thisUser} connected to Brume server`);
 		brume.onconnection = async ({peer, accept}) => {
-			peer.on('data', data => { log(data.toString()); });
-			peer.on('closed', () => { log(`peer closed`); });
+			peer.on('data', data => { log(data.toString()); peer.destroy(); });
+			peer.on('closed', () => { log(`peer closed`); process.exit(0); });
+			peer.on('error', ( e ) => { log(`peer error`); });
 			await accept(); //accept connection
 		};
 	}catch(e){

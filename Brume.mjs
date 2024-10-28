@@ -7,28 +7,23 @@ const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }},
 
 // #code import {EventEmitter} from 'events'; //webpack/fileGroup
 // #code import SimplePeer  from 'simple-peer';
-// #code import {Channel} from 'Channel';
 
 /// #else
 
-let wrtc, EventEmitter, SimplePeer, Channel, refreshTokenAuth;
+let EventEmitter, wrtc, SimplePeer, refreshTokenAuth;
 
 if(typeof window == 'undefined') {
 	({refreshTokenAuth} = await import('./cognitoAuth.mjs'));
 	EventEmitter = (await import('events')).default;
 	SimplePeer = (await import('simple-peer')).default;
-	({Channel} = await import('Channel'));
 	wrtc = (await import('@koush/wrtc')).default;
 	global.WebSocket = (await import('ws')).default;
 } else {
-	await import('/node_modules/browser-cjs/require.js');
-	EventEmitter = require('/node_modules/events/events.js');
-	SimplePeer = require('/node_modules/simple-peer/simplepeer.min.js');
-	({Channel} = await import('/node_modules/Channel/Channel.mjs'));
+	SimplePeer = window.SimplePeer;
+	( { EventEmitter } = await import( './events.mjs' ) );
 }
 
 /// #endif
-
 
 const	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
 	errorCodeMessages = {
@@ -39,6 +34,7 @@ const	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
 		404: 'This user is unknown',
 		406: 'Bad token',
 		409: 'This user is already connected',
+		410: 'Payment required',
 		500: 'Server error',
 		501: 'Server error',
 		ECONNREFUSED: '',
@@ -79,10 +75,9 @@ function setPingInterval(ws){
 class Brume extends EventEmitter {
 	#user = undefined;
 	#ws = undefined;
-	#peers = {};
 	#config = undefined;
-	#offerProcessor;
-	#connectionQ;
+	#peers = {};
+	#offerProcessor = () => {};
 
 	constructor(config){
 		super();
@@ -91,49 +86,59 @@ class Brume extends EventEmitter {
 				this.#config = config;
 				this.#user = jwt.decode(config.token)['custom:brume_name'];
 			}
-			this.#connectionQ = new Channel;
 		} catch(e) { throw(e); }
 	}
 
 	async #openWs({token, url}){
 		this.#ws = await wsConnect({token, url});
 		const pingInterval = setPingInterval(this.#ws);
+		this.#ws.addEventListener('message',  async msg => {
+			let {from, ...data} = JSON.parse(msg.data);
+			data = data?.data ? data.data  : data ;
 
-		this.#ws.addEventListener('message',  msg=>{
-			const {from, channelId, data} = JSON.parse(msg.data);
-			switch (data.type) {
+			switch( data.type ){
 				case 'offer':
-					if(this.#peers[channelId]) {
-						// offer resulted from renegotiate sent by this existing peer
-						this.#peers[channelId].signal(data);
- 					} else {
-						// new offer requirung 
-						this.emit('offer', data, from, channelId);
+					if( this.#peers[ from ] !== undefined ){
+						// offer because of peer renegotiate
+						this.#peers[ from ].signal( data );
+					} else {
+						const peer = new SimplePeer( { trickle: false, ...( typeof wrtc != 'undefined' ? { wrtc } : {} ) } );
+						peer.peerUsername = from;
+						this.#peers[ from ] = peer;
+						peer.on('signal', data => { this.#ws.send( JSON.stringify( { action: 'send', to: from, data } ) ); } );
+						peer.on('close', () => { delete this.#peers[ from ]; peer.emit( 'closed' ); } );
+						/*await*/ this.#offerProcessor( {
+							peer,
+							accept(){
+								peer.signal( data );
+								return new Promise(res => { peer.on('connect', ()=>{ res(); }); });
+							}
+						});
 					}
 					break;
-	
+        
+				case 'answer': 
+					clearTimeout( this.#peers[ from ]?.offerTimer );
 				case 'candidate':
-				case 'answer':
 				case 'renegotiate':
-					if(data.type == 'answer'){
-						clearTimeout(this.#peers[channelId]?.offerTimer);
-					}
-					if(this.#peers[channelId])
-						this.#peers[channelId].signal(data);
+				  this.#peers[ from ].signal( data );
+					break;
+
+				case 'transceiverRequest':
+					this.#peers[ from ].addTransceiver( data.transceiverRequest.kind, { send: true, receive: true} );
 					break;
 
 				case 'peerError':
-					this.#peers[channelId].emit('peerError', data);
-					break;
+					this.#peers[ data.peerUsername ].emit('peerError', data);
+					break;					
 
 				default:
-					this.emit('error', {code: 'EUNKNOWNMSG', message: `Unknown message from peer or Brume server: ${data.type}`});;
-					break;
+					console.log( `Brume unknown message: ${ JSON.stringify( data, null, 2 ) }` );
 			}
 		});
 
 		this.#ws.addEventListener('close', (event) => {
-
+			//if( typeof window === 'undefined' ){
 			if(this.listeners('serverclose').length == 0) {
 				setTimeout(async ()=>{ await this.start(); }, 10*1000);  //give server time to delete closed session
 			} else {
@@ -148,39 +153,44 @@ class Brume extends EventEmitter {
 	get thisUser() { return this.#user; }
 	set onconnection(func){ this.#offerProcessor = func; }
 
-	start(config = undefined){ // browser Brume doesn't have config until start
+	async connect( to ){
+		if( this.#peers[ to ] !== undefined ) throw( `Peer connection to ${ to } exists` );
+		const peer = new SimplePeer( { initiator: true, trickle: false, ...( typeof wrtc != 'undefined' ? { wrtc } : {} ) } );
+		peer.peerUsername = to;
+		this.#peers[ to ] = peer;
+		try{
+			return await new Promise( ( res, rej ) => {
+				peer.on( 'signal', data => {
+					peer.offerTimer = setTimeout( () => {
+						peer.emit( 'peerError', { code: "EOFFERTIMEOUT", peerUsername: to } );
+						delete this.#peers[ to ];
+					}, OFFERTIMEOUT );
+					this.#ws.send( JSON.stringify( { action: 'send', to, data } ) );
+				} );
+
+				peer.on( 'connect', () => { res( peer ); } );
+				peer.on( 'error', (e) => { rej(e); } );
+				peer.on( 'peerError', ( { code, peerUsername: to } ) => {
+					clearTimeout( peer.offerTimer );
+					delete this.#peers[ to ];
+					rej( { code: code, peerUsername: to, type: 'peerError', message: `${ to } connection request timeout` } );
+				});
+
+				peer.on( 'close', () => { delete this.#peers[ to ]; peer.emit( 'closed' );} );
+			});
+		} catch( e ) {
+			throw( e );
+		}
+	};
+
+	start( config = undefined ){ // browser Brume doesn't have config until start
 		if(config){
 			this.#config = config;
 			this.#user = jwt.decode(config.token)['custom:brume_name'];
 		}
 		return new Promise(async (res, rej) => {
 			try {
-				let peer = undefined;
 				await this.#openWs({token: this.#config.token, url: this.#config.url});
-
-				this.addListener('offer', async (offer, from, channelId)=>{
-					peer = new SimplePeer({channelId, trickle: false, ...(typeof wrtc != 'undefined' ? {wrtc} : {})});
-					this.#peers[channelId] = peer;
-					peer.channelId = channelId;
-					peer.peerUsername = from;
-			
-					peer.on('signal', data => {
-						const msg = data.candidate ? {type: 'candidate', candidate: data} : {type: data.type, data};
-						msg.channelId = peer.channelId;
-						this.#ws.send(JSON.stringify({ action: 'send', to: from, data: msg }));
-					});
-			
-					peer.on('error', (e) => { rej(e); });
-					peer.on('close', () => { delete this.#peers[peer.channelId]; });
-					let rVal = { // use instead of peer for offerProcessor
-						peer,
-						async accept(){
-							peer.signal(offer);
-							return await new Promise(res => { peer.on('connect', ()=>{ res(); }); });
-						}
-					};
-					await this.#offerProcessor ? this.#offerProcessor(rVal) : this.#connectionQ.send(rVal);
-				});
 				res();
 			} catch(e) {
 				if(e?.code && e.code == '401'){
@@ -200,43 +210,5 @@ class Brume extends EventEmitter {
 		});
 	}
 
-	stop(){ this.#ws = null; }
-
-	async connection(){
-		if(this.#offerProcessor) return null;
-		try{ return await this.#connectionQ.get(); }
-		catch(e){ return null; }
-	}
-	
-	async connect(dest){
-		const peer = new SimplePeer({initiator: true, trickle: false, ...(typeof wrtc != 'undefined' ? {wrtc} : {})});
-		peer.peerUsername = dest;
-		peer.channelId = this.#user + Math.random().toString(10).slice(2,8);
-		this.#peers[peer.channelId] = peer;
-		try{
-			return await new Promise((res, rej) => {
-				peer.on('signal', data => {
-					const msg = data.candidate ? {type: 'candidate', candidate: data} : {type: data.type, data};
-					msg.channelId = peer.channelId;
-					peer.offerTimer = setTimeout(()=>{
-						peer.emit('peerError', { code: "EOFFERTIMEOUT", peerUsername: dest });
-						delete this.#peers[peer.channelId];
-					}, OFFERTIMEOUT);
-					this.#ws.send(JSON.stringify({ action: 'send', to: dest, data: {channelId: peer.channelId, data} }));
-				});
-
-				peer.on('connect', () => { res(peer); });
-				peer.on('error', (e) => { rej(e); });
-				peer.on('peerError', ({code, peerUsername}) => {
-					clearTimeout(peer.offerTimer);
-					delete this.#peers[peer.channelId];
-					rej({code: code, peerUsername, type: 'peerError', message: `${peerUsername} connection request timeout`});
-				});
-
-				peer.on('close', () => { delete this.#peers[peer.channelId]; });
-			});
-		} catch(e) {
-			throw(e);
-		}
-	};
+	stop(){ this.#ws = undefined; }
 }
