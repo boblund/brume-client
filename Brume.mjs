@@ -124,12 +124,16 @@ class Brume extends EventEmitter {
 				  this.#peers[ from ].signal( data );
 					break;
 
+				case 'transceiverRequest':
+					this.#peers[ from ].addTransceiver( data.transceiverRequest.kind, { send: true, receive: true} );
+					break;
+
 				case 'peerError':
 					this.#peers[ data.peerUsername ].emit('peerError', data);
 					break;					
 
 				default:
-					this.emit('error', {code: 'EUNKNOWNMSG', message: `Unknown message from peer or Brume server: ${data.type}`});;
+					console.log( `Brume unknown message: ${ JSON.stringify( data, null, 2 ) }` );
 			}
 		});
 
@@ -157,14 +161,14 @@ class Brume extends EventEmitter {
 		try{
 			return await new Promise( ( res, rej ) => {
 				peer.on( 'signal', data => {
-          	peer.offerTimer = setTimeout( () => {
-						  peer.emit( 'peerError', { code: "EOFFERTIMEOUT", peerUsername: to } );
-						  delete this.#peers[ to ];
-					  }, OFFERTIMEOUT );
+					peer.offerTimer = setTimeout( () => {
+						peer.emit( 'peerError', { code: "EOFFERTIMEOUT", peerUsername: to } );
+						delete this.#peers[ to ];
+					}, OFFERTIMEOUT );
 					this.#ws.send( JSON.stringify( { action: 'send', to, data } ) );
 				} );
 
-				peer.on( 'connect', () => { res( peer ); });
+				peer.on( 'connect', () => { res( peer ); } );
 				peer.on( 'error', (e) => { rej(e); } );
 				peer.on( 'peerError', ( { code, peerUsername: to } ) => {
 					clearTimeout( peer.offerTimer );
