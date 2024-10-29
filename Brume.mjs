@@ -122,13 +122,38 @@ class BrumePeer extends SimplePeer{
 		}
 	}
 
-	send( msg ){
+	send( _msg ){
+		let msg;
+		switch( true ){
+			case _msg instanceof Object && _msg?.type !== undefined :
+				msg = encodeMsg( _msg );
+				break;
+
+			case _msg instanceof Uint8Array : // called by this.write
+				msg = _msg;
+				break;
+
+			default:
+				throw( `argument must be { type: < string >, ... }` );
+		}
+		super.send( msg );
+	}
+
+	write( _msg ){
+		if( _msg instanceof Object && _msg?.type !== undefined ){
+			super.write( encodeMsg ( _msg ) );
+		} else {
+			throw( `argument must be { type: < string >, ... }` );
+		}
+	}
+
+	/*send( msg ){
 		super.send( msg instanceof Uint8Array || ( typeof Buffer !== 'undefined' && msg instanceof Buffer ) ? msg : encodeMsg ( msg ) );
 	}
 
 	write( msg ){
 		super.write( encodeMsg ( msg ) );
-	}
+	}*/
 }
 
 class Brume extends EventEmitter {
