@@ -48,7 +48,7 @@ const	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
 	};
 
 function wsConnect({token, url}) {
-	return new Promise((res, rej) => {	
+	return new Promise((res, rej) => {
 		let ws = typeof window == undefined
 			? new WebSocket(url, { headers : { token }, rejectUnauthorized: false })
 			: new WebSocket(`${url}?token=${token}`);
@@ -59,7 +59,7 @@ function wsConnect({token, url}) {
 		ws.onerror = err => {
 			// make codes recognize: ECONNREFUSED, ENOTFOUND in err.message
 			const code = err?.message
-				? err?.message.match(/: (\d*)/) 
+				? err?.message.match(/: (\d*)/)
 					? err.message.match(/: (\d*)/)[1]
 					: undefined
 				: undefined;
@@ -82,24 +82,24 @@ class BrumePeer extends SimplePeer{
 		super( options );
 		super.on( 'data',  ( _data ) => {
 			const data = decodeMsg( _data );
-			if(data.type === 'signal'){
+			if(data?.type === 'signal'){
 				debug( `peer signal: ${ data.data.type }` );
 				switch( data.data.type ){
 					case 'offer':
-					case 'answer': 
+					case 'answer':
 					case 'candidate':
 					case 'renegotiate':
 						this.signal( data.data );
 						break;
-  
+
 					case 'transceiverRequest':
 						this.addTransceiver( data.data.transceiverRequest.kind, { send: true, receive: true} );
 						break;
-  
+
 					case 'peerError':
 						this.emit('peerError', data.data);
-						break;					
-  
+						break;
+
 					default:
 						console.log( `Unknown message: ${ JSON.stringify( data.data, null, 2 ) }` );
 				}
@@ -108,12 +108,12 @@ class BrumePeer extends SimplePeer{
 			}
 		});
 	}
-  
+
 	destroy( arg ){
 		this.brumeCleanup();
 		super.destroy( arg );
 	}
-	
+
 	on(event, func){
 		if( event === 'data' ){
 			this.#clientMsg = func;
@@ -187,14 +187,14 @@ class Brume extends EventEmitter {
 										peer.send( { type: 'signal', data } );
 									} );
 									debug( `peer.onConnect: ${ from }` );
-									res(); 
+									res();
 								} ); } );
 							}
 						});
 					}
 					break;
-        
-				case 'answer': 
+
+				case 'answer':
 					clearTimeout( this.#peers[ from ]?.offerTimer );
 				case 'candidate':
 				case 'renegotiate':
@@ -213,7 +213,7 @@ class Brume extends EventEmitter {
 				case 'peerError':
 					console.log( `Brume peerError: ${ JSON.stringify( data ) }` );
 					this.#peers[ data.peerUsername ].emit('peerError', data);
-					break;					
+					break;
 
 				default:
 				//this.emit('error', {code: 'EUNKNOWNMSG', message: `Unknown message from peer or Brume server: ${data.type}`});;
@@ -294,7 +294,7 @@ class Brume extends EventEmitter {
 						this.#config.token = IdToken;
 						this.emit('reauthorize', this.#config);
 						await this.#openWs({token: this.#config.token, url: this.#config.url});
-						res(this);				
+						res(this);
 					} catch(e) {
 						rej(e);
 					}
