@@ -7,10 +7,6 @@ function delay(msec){
 	});
 }
 
-const log = (...a) => {
-	console.log(`${new Date().toLocaleString('en', {hourCycle: "h24"})}:`, ...a);
-};
-
 const configFile = process.argv.length == 3
 	? process.argv[2]
 	: process.env.BRUME_CONFIG
@@ -27,33 +23,33 @@ config.url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume
 		const brume = new Brume(config); //(config);
 
 		brume.on('reauthorize', newconfig => {
-			log('reauthorize');
+			Brume.log.debug('reauthorize');
 			writeFileSync(configFile, JSON.stringify({...newconfig, url: config.url}));
 		});
 
 		brume.on('serverclose', () => {
-			log('server restart');
+			Brume.log.debug('server restart');
 			setTimeout(async ()=>{ await brume.start(); }, 10*1000);
 		});
 
 		brume.on('error', e => {
 			notdone = false;
-			log(JSON.stringify(e));
+			Brume.log.debug(JSON.stringify(e));
 		});
 
 		await brume.start();
-		log(`${brume.thisUser} connected to Brume server`);
+		Brume.log.debug(`${brume.thisUser} connected to Brume server`);
 		const peer = await brume.connect(brume.thisUser == 'sam' ? 'joe' : 'sam');
-		peer.on('data', data => { log(data.toString()); });
-		peer.on('closed', () => { log(`peer closed`); notdone = false;});
-		peer.on('error', ( e ) => { log(`peer error`); });
+		peer.on('data', data => { Brume.log.debug(data.toString()); });
+		peer.on('closed', () => { Brume.log.debug(`peer closed`); notdone = false;});
+		peer.on('error', ( e ) => { Brume.log.debug(`peer error`); });
 		while(notdone){
 			peer.write({type: 'message', data: 'howdy'});
-			log(`sent message`);
+			Brume.log.info(`sent message`);
 			await delay(10 * 1000);
 		}
 	} catch(e){
-		log(`error: ${e.message}`);
+		Brume.log.debug(`error: ${e.message}`);
 	}
 	process.exit(0);
 })();

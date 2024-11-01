@@ -1,8 +1,8 @@
 export {Brume};
 
 import { encodeMsg, decodeMsg } from './peerMsgEncDec.mjs';
+import { log } from './logger.mjs';
 
-const debug = true ? ( ...args ) => { console.log( ...args ); } : () => {};
 const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }},
 	OFFERTIMEOUT = 5 * 60 * 1000; // 5 minutes
 
@@ -83,7 +83,7 @@ class BrumePeer extends SimplePeer{
 		super.on( 'data',  ( _data ) => {
 			const data = decodeMsg( _data );
 			if(data?.type === 'signal'){
-				debug( `peer signal: ${ data.data.type }` );
+				log.debug( `peer signal: ${ data.data.type }` );
 				switch( data.data.type ){
 					case 'offer':
 					case 'answer':
@@ -101,7 +101,7 @@ class BrumePeer extends SimplePeer{
 						break;
 
 					default:
-						console.log( `Unknown message: ${ JSON.stringify( data.data, null, 2 ) }` );
+						log.debug( `Unknown message: ${ JSON.stringify( data.data, null, 2 ) }` );
 				}
 			} else {
 				this.#clientMsg( data );
@@ -157,6 +157,7 @@ class BrumePeer extends SimplePeer{
 }
 
 class Brume extends EventEmitter {
+	static log = log;
 	#user = undefined;
 	#ws = undefined;
 	#config = undefined;
@@ -180,7 +181,7 @@ class Brume extends EventEmitter {
 			let {from, ...data} = JSON.parse(msg.data);
 			data = data?.data ? data.data  : data ;
 
-			console.log( `ws.onMessage: ${ data.type };` );
+			log.debug( `ws.onMessage: ${ data.type };` );
 			switch( data.type ){
 				case 'offer':
 					if( this.#peers[ from ] !== undefined ){
@@ -194,7 +195,7 @@ class Brume extends EventEmitter {
 							delete this.#peers[ from ];
 						};
 						peer.on('signal', data => {
-							debug( `brume signal: ${ data.type }` );
+							log.debug( `brume signal: ${ data.type }` );
 							this.#ws.send( JSON.stringify( { action: 'send', to: from, data } ) );
 						} );
 						peer.on('close', () => {
@@ -211,7 +212,7 @@ class Brume extends EventEmitter {
 									peer.on( 'signal', ( data ) => {
 										peer.send( { type: 'signal', data } );
 									} );
-									debug( `peer.onConnect: ${ from }` );
+									log.debug( `peer.onConnect: ${ from }` );
 									res();
 								} ); } );
 							}
@@ -226,23 +227,23 @@ class Brume extends EventEmitter {
 				  if( this.#peers[ from ] ) {
 						this.#peers[ from ].signal( data );
 					} else {
-						console.log( `${ data.type } received before peer created` );
+						log.debug( `${ data.type } received before peer created` );
 					}
 					break;
 
 				case 'transceiverRequest':
-					debug( `Brume transceiverRequest: ${ JSON.stringify( data ) }` );
+					log.debug( `Brume transceiverRequest: ${ JSON.stringify( data ) }` );
 					this.#peers[ from ].addTransceiver( data.transceiverRequest.kind, { send: true, receive: true} );
 					break;
 
 				case 'peerError':
-					console.log( `Brume peerError: ${ JSON.stringify( data ) }` );
+					log.debug( `Brume peerError: ${ JSON.stringify( data ) }` );
 					this.#peers[ data.peerUsername ].emit('peerError', data);
 					break;
 
 				default:
 				//this.emit('error', {code: 'EUNKNOWNMSG', message: `Unknown message from peer or Brume server: ${data.type}`});;
-					console.log( `Brume unknown message: ${ JSON.stringify( data, null, 2 ) }` );
+					log.debug( `Brume unknown message: ${ JSON.stringify( data, null, 2 ) }` );
 			}
 		});
 
@@ -281,7 +282,7 @@ class Brume extends EventEmitter {
 				} );
 
 				peer.on( 'connect', () => {
-					debug( `peer.connect: ${ to }` );
+					log.debug( `peer.connect: ${ to }` );
 					//delete this.#peers[ to ];
 					peer.removeAllListeners( 'signal' );
 					peer.on( 'signal', ( data ) => {

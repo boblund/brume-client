@@ -18,11 +18,10 @@
   },
   "homepage": "https://github.com/boblund/brume#readme",
   "dependencies": {
-    "@aws-sdk/client-cognito-identity-provider": "^3.454.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.682.0",
     "@koush/wrtc": "^0.5.3",
-    "Channel": "github:boblund/js-caf",
-    "events": "^3.3.0",
+    "express": "^4.21.1",
     "simple-peer": "^9.11.1",
-    "ws": "^8.16.0"
+    "ws": "^8.18.0"
   }
 }
