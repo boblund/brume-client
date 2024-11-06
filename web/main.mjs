@@ -50,8 +50,8 @@ async function offerHandler({peer, accept}) {
 		peer.on('error', () => {
 			endPeerConnection();
 		});
-		peer.on('data', ( { type, data } ) => {
-			dataArea.innerHTML = `Data from ${peer.peerUsername}: ${data}`;
+		peer.on('data', ( data ) => {
+			dataArea.innerHTML = `Data from ${peer.peerUsername}: ${ JSON.stringify( Brume.decodeMsg ( data ) ) }`;
 		});
 		
 		await accept();
@@ -75,7 +75,7 @@ callElem.callBtn.addEventListener('click', async (e) => {
 		});
 		callElem.hangUpBtn.addEventListener("click", () => { endPeerConnection(peer); });
 		callElem.hangUp();
-		peer.send( { type: 'msg', data: `Hi ${ callElem.name.value }`} );
+		peer.send( Brume.encodeMsg( { type: 'msg', data: `Hi ${ callElem.name.value }`} ) );
 	}
 });
 

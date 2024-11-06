@@ -32,8 +32,14 @@ config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.
 		await brume.start();
 		Brume.log.info(`${brume.thisUser} connected to Brume server`);
 		brume.onconnection = async ({peer, accept}) => {
-			peer.on('data', data => { Brume.log.info(JSON.stringify(data)); peer.destroy(); });
-			peer.on('closed', () => { Brume.log.debug(`peer closed`); process.exit(0); });
+			peer.on('data', _data => {
+				const data = Brume.decodeMsg( _data );
+				Brume.log.info( `Message from ${ peer.peerUsername }: ${ JSON.stringify( data ) }` ); 
+				peer.send( Brume.encodeMsg( { type: 'msg', data: 'Howdy' } ) );
+			} );
+			peer.on('close', () => { 
+				Brume.log.debug(`peer closed`);
+				process.exit(0); });
 			peer.on('error', ( e ) => { Brume.log.debug(`peer error`); });
 			await accept(); //accept connection
 		};

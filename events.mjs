@@ -155,7 +155,7 @@ EventEmitter.prototype.emit = function emit(type) {
     var len = handler.length;
     var listeners = arrayClone(handler, len);
     for (var i = 0; i < len; ++i)
-      ReflectApply(listeners[i], this, args);
+      if( ReflectApply(listeners[i], this, args) === 'stopImmediatePropagation' ) break;
   }
 
   return true;

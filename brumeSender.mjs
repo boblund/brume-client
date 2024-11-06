@@ -40,16 +40,18 @@ config.url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume
 		await brume.start();
 		Brume.log.debug(`${brume.thisUser} connected to Brume server`);
 		const peer = await brume.connect(brume.thisUser == 'sam' ? 'joe' : 'sam');
-		peer.on('data', data => { Brume.log.debug(data.toString()); });
-		peer.on('closed', () => { Brume.log.debug(`peer closed`); notdone = false;});
+		peer.on('data', data => {
+			Brume.log.info( `Message from ${ peer.peerUsername }: ${ JSON.stringify( Brume.decodeMsg( data ) ) }` );
+			peer.destroy();
+		} );
+		peer.on('close', () => {
+			Brume.log.info(`peer closed`);
+			process.exit( 0 );
+		} );
 		peer.on('error', ( e ) => { Brume.log.debug(`peer error`); });
-		while(notdone){
-			peer.write({type: 'message', data: 'howdy'});
-			Brume.log.info(`sent message`);
-			await delay(10 * 1000);
-		}
+		peer.write( Brume.encodeMsg( { type: 'msg', data: 'howdy'} ) );
+		Brume.log.info(`sent message`);
 	} catch(e){
 		Brume.log.debug(`error: ${e.message}`);
 	}
-	process.exit(0);
 })();
