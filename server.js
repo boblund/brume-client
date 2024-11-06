@@ -31,13 +31,13 @@ async function server(appWebDir) {
 		process.exit(1);
 	}
 
-	let port = null;
+	let port = process.env?.PORT ? process.env.PORT : null;
 	while(true) {
 		try {
 			port = await listen(httpServer);
 			break;
 		} catch(e){
-			if(e.code == 'EADDRINUSE') continue;
+			if( !process.env?.PORT && e.code == 'EADDRINUSE') continue;
 			console.error(`server error: ${e.code}`);
 			process.exit(1);
 		}
