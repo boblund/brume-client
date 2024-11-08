@@ -1,6 +1,9 @@
-export {Brume};
+export { Brume };
 
-const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }},
+import { encodeMsg, decodeMsg, checkMsgType } from './peerMsgEncDec.mjs';
+import { log } from './logger.mjs';
+
+const jwt = { decode( t ){ return JSON.parse( atob( t.split( '.' )[1] ) ); } },
 	OFFERTIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 /// #if WEBPACK
@@ -12,18 +15,69 @@ const jwt = {decode(t){return JSON.parse(atob(t.split('.')[1])); }},
 
 let EventEmitter, wrtc, SimplePeer, refreshTokenAuth;
 
-if(typeof window == 'undefined') {
-	({refreshTokenAuth} = await import('./cognitoAuth.mjs'));
-	EventEmitter = (await import('events')).default;
-	SimplePeer = (await import('simple-peer')).default;
-	wrtc = (await import('@koush/wrtc')).default;
-	global.WebSocket = (await import('ws')).default;
+if( typeof window == 'undefined' ) {
+	( { refreshTokenAuth } = await import( './cognitoAuth.mjs' ) );
+	( { EventEmitter } = await import( './events.mjs' ) );
+	SimplePeer = ( await import( 'simple-peer' ) ).default;
+	wrtc = ( await import( '@koush/wrtc' ) ).default;
+	global.WebSocket = ( await import( 'ws' ) ).default;
 } else {
 	SimplePeer = window.SimplePeer;
 	( { EventEmitter } = await import( './events.mjs' ) );
 }
 
 /// #endif
+
+function arrayClone( arr, n ) {
+	var copy = new Array( n );
+	for ( var i = 0; i < n; ++i )
+		copy[i] = arr[i];
+	return copy;
+}
+
+SimplePeer.prototype.emit = function emit( type ) {
+	var args = [];
+	for ( var i = 1; i < arguments.length; i++ ) args.push( arguments[i] );
+	var doError = ( type === 'error' );
+
+	var events = this._events;
+	if ( events !== undefined )
+		doError = ( doError && events.error === undefined );
+	else if ( !doError )
+		return false;
+
+	// If there is no 'error' event listener then throw.
+	if ( doError ) {
+		var er;
+		if ( args.length > 0 )
+			er = args[0];
+		if ( er instanceof Error ) {
+			// Note: The comments on the `throw` lines are intentional, they show
+			// up in Node's output if this results in an unhandled exception.
+			throw er; // Unhandled 'error' event
+		}
+		// At least give some kind of context to the user
+		var err = new Error( 'Unhandled error.' + ( er ? ' (' + er.message + ')' : '' ) );
+		err.context = er;
+		throw err; // Unhandled 'error' event
+	}
+
+	var handler = events[type];
+
+	if ( handler === undefined )
+		return false;
+
+	if ( typeof handler === 'function' ) {
+		handler.apply( this, args );
+	} else {
+		var len = handler.length;
+		var listeners = arrayClone( handler, len );
+		for( var i = 0; i < len; ++i )
+			if( listeners[i].apply( this, args ) === 'stopImmediatePropagation' ) break;
+	}
+
+	return true;
+};
 
 const	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
 	errorCodeMessages = {
@@ -44,120 +98,176 @@ const	CLIENTID = '6dspdoqn9q00f0v42c12qvkh5l',
 		NotAuthorizedException: 'Invalid Refresh Token'
 	};
 
-function wsConnect({token, url}) {
-	return new Promise((res, rej) => {	
+function wsConnect( { token, url } ) {
+	return new Promise( ( res, rej ) => {
 		let ws = typeof window == undefined
-			? new WebSocket(url, { headers : { token }, rejectUnauthorized: false })
-			: new WebSocket(`${url}?token=${token}`);
+			? new WebSocket( url, { headers: { token }, rejectUnauthorized: false } )
+			: new WebSocket( `${ url }?token=${ token }` );
 
 		//ws.on('pong', ()=>{});
-		ws.onopen = () => { res(ws); };
+		ws.onopen = () => { res( ws ); };
 
 		ws.onerror = err => {
 			// make codes recognize: ECONNREFUSED, ENOTFOUND in err.message
 			const code = err?.message
-				? err?.message.match(/: (\d*)/) 
-					? err.message.match(/: (\d*)/)[1]
+				? err?.message.match( /: (\d*)/ )
+					? err.message.match( /: (\d*)/ )[1]
 					: undefined
 				: undefined;
-			rej(code && errorCodeMessages[code] ? {message:`${errorCodeMessages[code]} ${code}`, code} : err);
+			rej( code && errorCodeMessages[code] ? { message: `${ errorCodeMessages[code] } ${ code }`, code } : err );
 		};
 
-	});
+	} );
 }
 
-function setPingInterval(ws){
+function setPingInterval( ws ){
 	return typeof ws?.ping === 'function'
-		? setInterval(function(){ws.ping(()=>{});}, 9.8 * 60 * 1000)
+		? setInterval( function(){ ws.ping( ()=>{} ); }, 9.8 * 60 * 1000 )
 		: null;
 }
 
+function ondataHandler ( _data ) {
+	if( checkMsgType( _data, 'signal' ) ){
+		const data = decodeMsg( _data );
+		if( data?.type === 'signal' ){
+			log.debug( `peer signal: ${ data.data.type }` );
+			switch( data.data.type ){
+				case 'offer':
+				case 'answer':
+				case 'candidate':
+				case 'renegotiate':
+					this.signal( data.data );
+					break;
+
+				case 'transceiverRequest':
+					this.addTransceiver( data.data.transceiverRequest.kind, { send: true, receive: true } );
+					break;
+
+				case 'peerError':
+					this.emit( 'peerError', data.data );
+					break;
+
+				default:
+					log.debug( `Unknown message: ${ JSON.stringify( data.data, null, 2 ) }` );
+			}
+			return 'stopImmediatePropagation';
+		}
+	}
+}
+
 class Brume extends EventEmitter {
+	static log = log;
+	static encodeMsg = encodeMsg;
+	static decodeMsg = decodeMsg;
 	#user = undefined;
 	#ws = undefined;
 	#config = undefined;
 	#peers = {};
 	#offerProcessor = () => {};
 
-	constructor(config){
+	constructor( config ){
 		super();
 		try {
-			if(config){
+			if( config ){
 				this.#config = config;
-				this.#user = jwt.decode(config.token)['custom:brume_name'];
+				this.#user = jwt.decode( config.token )['custom:brume_name'];
 			}
-		} catch(e) { throw(e); }
+		} catch( e ) { throw( e ); }
 	}
 
-	async #openWs({token, url}){
-		this.#ws = await wsConnect({token, url});
-		const pingInterval = setPingInterval(this.#ws);
-		this.#ws.addEventListener('message',  async msg => {
-			let {from, ...data} = JSON.parse(msg.data);
+	async #openWs( { token, url } ){
+		this.#ws = await wsConnect( { token, url } );
+		const pingInterval = setPingInterval( this.#ws );
+		this.#ws.addEventListener( 'message',  msg => {
+			let { from, ...data } = JSON.parse( msg.data );
 			data = data?.data ? data.data  : data ;
 
+			log.debug( `ws.onMessage: ${ data.type };` );
 			switch( data.type ){
 				case 'offer':
 					if( this.#peers[ from ] !== undefined ){
 						// offer because of peer renegotiate
 						this.#peers[ from ].signal( data );
 					} else {
-						const peer = new SimplePeer( { trickle: false, ...( typeof wrtc != 'undefined' ? { wrtc } : {} ) } );
+						const peer = new SimplePeer( { trickle: true, ...( typeof wrtc != 'undefined' ? { wrtc } : {} ) } );
 						peer.peerUsername = from;
 						this.#peers[ from ] = peer;
-						peer.on('signal', data => { this.#ws.send( JSON.stringify( { action: 'send', to: from, data } ) ); } );
-						peer.on('close', () => { delete this.#peers[ from ]; peer.emit( 'closed' ); } );
-						/*await*/ this.#offerProcessor( {
+						peer.on( 'data', ondataHandler );
+						peer.on( 'close', () => {
+							delete this.#peers[ from ];
+						} );
+						peer.on( 'signal', data => {
+							log.debug( `brume signal: ${ data.type }` );
+							this.#ws.send( JSON.stringify( { action: 'send', to: from, data } ) );
+						} );
+						this.#offerProcessor( {
 							peer,
 							accept(){
 								peer.signal( data );
-								return new Promise(res => { peer.on('connect', ()=>{ res(); }); });
+								return new Promise( res => { peer.on( 'connect', function(){
+									peer.removeAllListeners( 'signal' );
+									peer.on( 'signal', ( data ) => {
+										peer.send( encodeMsg( { type: 'signal', data } ) );
+									} );
+									log.debug( `peer.onConnect: ${ from }` );
+									res();
+								} ); } );
 							}
-						});
+						} );
 					}
 					break;
-        
-				case 'answer': 
+
+				case 'answer':
 					clearTimeout( this.#peers[ from ]?.offerTimer );
 				case 'candidate':
 				case 'renegotiate':
-				  this.#peers[ from ].signal( data );
+				  if( this.#peers[ from ] ) {
+						this.#peers[ from ].signal( data );
+					} else {
+						log.debug( `${ data.type } received before peer created` );
+					}
 					break;
 
 				case 'transceiverRequest':
-					this.#peers[ from ].addTransceiver( data.transceiverRequest.kind, { send: true, receive: true} );
+					log.debug( `Brume transceiverRequest: ${ JSON.stringify( data ) }` );
+					this.#peers[ from ].addTransceiver( data.transceiverRequest.kind, { send: true, receive: true } );
 					break;
 
 				case 'peerError':
-					this.#peers[ data.peerUsername ].emit('peerError', data);
-					break;					
+					log.debug( `Brume peerError: ${ JSON.stringify( data ) }` );
+					this.#peers[ data.peerUsername ].emit( 'peerError', data );
+					break;
 
 				default:
-					console.log( `Brume unknown message: ${ JSON.stringify( data, null, 2 ) }` );
+					log.debug( `Brume unknown message: ${ JSON.stringify( data, null, 2 ) }` );
 			}
-		});
+		} );
 
-		this.#ws.addEventListener('close', (event) => {
+		this.#ws.addEventListener( 'close', ( event ) => {
 			//if( typeof window === 'undefined' ){
-			if(this.listeners('serverclose').length == 0) {
-				setTimeout(async ()=>{ await this.start(); }, 10*1000);  //give server time to delete closed session
+			if( this.listeners( 'serverclose' ).length == 0 ) {
+				setTimeout( async ()=>{ await this.start(); }, 10 * 1000 );  //give server time to delete closed session
 			} else {
-				this.emit('serverclose');
+				this.emit( 'serverclose' );
 			}
 
-			clearInterval(pingInterval);
+			clearInterval( pingInterval );
 			this.stop();
-		});
+		} );
 	};
 
 	get thisUser() { return this.#user; }
-	set onconnection(func){ this.#offerProcessor = func; }
+	set onconnection( func ){ this.#offerProcessor = func; }
 
 	async connect( to ){
 		if( this.#peers[ to ] !== undefined ) throw( `Peer connection to ${ to } exists` );
-		const peer = new SimplePeer( { initiator: true, trickle: false, ...( typeof wrtc != 'undefined' ? { wrtc } : {} ) } );
+		const peer = new SimplePeer( { initiator: true, trickle: true, ...( typeof wrtc != 'undefined' ? { wrtc } : {} ) } );
 		peer.peerUsername = to;
 		this.#peers[ to ] = peer;
+		peer.on( 'data', ondataHandler );
+		peer.on( 'close', () => {
+			delete this.#peers[ to ];
+		} );
 		try{
 			return await new Promise( ( res, rej ) => {
 				peer.on( 'signal', data => {
@@ -168,46 +278,51 @@ class Brume extends EventEmitter {
 					this.#ws.send( JSON.stringify( { action: 'send', to, data } ) );
 				} );
 
-				peer.on( 'connect', () => { res( peer ); } );
-				peer.on( 'error', (e) => { rej(e); } );
+				peer.on( 'connect', () => {
+					log.debug( `peer.connect: ${ to }` );
+					peer.removeAllListeners( 'signal' );
+					peer.on( 'signal', ( data ) => {
+						peer.send( encodeMsg( { type: 'signal', data } ) );
+					} );
+					res( peer );
+				} );
+				peer.on( 'error', ( e ) => { rej( e ); } );
 				peer.on( 'peerError', ( { code, peerUsername: to } ) => {
 					clearTimeout( peer.offerTimer );
 					delete this.#peers[ to ];
 					rej( { code: code, peerUsername: to, type: 'peerError', message: `${ to } connection request timeout` } );
-				});
-
-				peer.on( 'close', () => { delete this.#peers[ to ]; peer.emit( 'closed' );} );
-			});
+				} );
+			} );
 		} catch( e ) {
 			throw( e );
 		}
 	};
 
 	start( config = undefined ){ // browser Brume doesn't have config until start
-		if(config){
+		if( config ){
 			this.#config = config;
-			this.#user = jwt.decode(config.token)['custom:brume_name'];
+			this.#user = jwt.decode( config.token )['custom:brume_name'];
 		}
-		return new Promise(async (res, rej) => {
+		return new Promise( async ( res, rej ) => {
 			try {
-				await this.#openWs({token: this.#config.token, url: this.#config.url});
+				await this.#openWs( { token: this.#config.token, url: this.#config.url } );
 				res();
-			} catch(e) {
-				if(e?.code && e.code == '401'){
+			} catch( e ) {
+				if( e?.code && e.code == '401' ){
 					try{
-						let {IdToken} = await refreshTokenAuth(CLIENTID, this.#config.RefreshToken);
+						let { IdToken } = await refreshTokenAuth( CLIENTID, this.#config.RefreshToken );
 						this.#config.token = IdToken;
-						this.emit('reauthorize', this.#config);
-						await this.#openWs({token: this.#config.token, url: this.#config.url});
-						res(this);				
-					} catch(e) {
-						rej(e);
+						this.emit( 'reauthorize', this.#config );
+						await this.#openWs( { token: this.#config.token, url: this.#config.url } );
+						res( this );
+					} catch( e ) {
+						rej( e );
 					}
 				} else {
-					rej(e);
+					rej( e );
 				}
 			}
-		});
+		} );
 	}
 
 	stop(){ this.#ws = undefined; }
