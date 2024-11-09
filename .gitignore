@@ -1,3 +1,6 @@
 node_modules
 TODO
 .DS_Store
+webview/main.js
+webview/vendors-brume-app_node_modules_aws-sdk_client-cognito-identity-provider_dist-es_CognitoIdenti-f0d4c3.main.js
+webview/brume-app_cognitoAuth_mjs.main.js
