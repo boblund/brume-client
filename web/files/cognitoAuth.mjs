@@ -18,7 +18,7 @@ async function userPassAuth(USERNAME, PASSWORD) {
 	try {
 		const command = new InitiateAuthCommand(params);
 		let data = await client.send(command);
-		if(data.ChallengeName && data.ChallengeName == "NEW_PASSWORD_REQUIRED"){
+		if(data.ChallengeName && data.ChallengeName == "NEW_PASSWORD_REQUIRED") {
 			return {error: "NEW_PASSWORD_REQUIRED"};
 		} else {
 			return {IdToken: data.AuthenticationResult.IdToken};

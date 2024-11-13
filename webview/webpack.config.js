@@ -5,7 +5,7 @@ module.exports = {
 	mode: 'development',
 	devtool: false,
 	//entry: ['./brume-app/main.mjs'],
-	entry: [ path.join( __dirname, "brume-app/main.mjs" ) ],
+	entry: [ path.join( __dirname, "files/main.mjs" ) ],
 	output: {
 	//path: path.resolve(__dirname),
 		path: __dirname,

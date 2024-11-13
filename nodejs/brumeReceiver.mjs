@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'fs';
-import { Brume } from './Brume.mjs';
+import { Brume } from './files/Brume.mjs';
 
 const configFile = process.argv.length == 3
 	? process.argv[2]

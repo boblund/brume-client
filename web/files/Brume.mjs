@@ -3,8 +3,6 @@ export { Brume };
 import { encodeMsg, decodeMsg, checkMsgType } from './peerMsgEncDec.mjs';
 import { log } from './logger.mjs';
 
-//const log = { debug( ...args ){ console.log( ...args ); } };
-
 const jwt = { decode( t ){ return JSON.parse( atob( t.split( '.' )[1] ) ); } },
 	OFFERTIMEOUT = 5 * 60 * 1000; // 5 minutes
 

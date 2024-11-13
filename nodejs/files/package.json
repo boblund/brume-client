@@ -1,0 +1,17 @@
+{
+  "name": "nodejs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "Brume.mjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.687.0",
+    "@koush/wrtc": "^0.5.3",
+    "simple-peer": "^9.11.1",
+    "ws": "^8.18.0"
+  }
+}

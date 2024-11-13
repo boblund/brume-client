@@ -33,8 +33,8 @@ class Call extends HTMLElement {
 						placeholder = "username to call" />
 				</div>
 				<div class="w3-container w3-cell">
-					<button id = "${this.id}-callBtn" class = "btn-success btn">Call</button>
-					<button id = "${this.id}-hangUpBtn" class = "btn-danger btn">Hang Up</button>					
+					<button id = "${this.id}-callBtn" class = "btn-success btn">Connect</button>
+					<button id = "${this.id}-hangUpBtn" class = "btn-danger btn">Disconnect</button>					
 				</div> 
 			</div>
     `;
