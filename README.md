@@ -11,7 +11,7 @@ Brume provides user-to-user (AKA peer-to-peer) data/voice/video between Brume us
 
 [Peer instance](#peer)
 
-[Using the example](#using)
+[Installation and examples](#using)
 
 [License](#license)
 
@@ -202,49 +202,82 @@ The Brume instance acts on these events to manage the peers it creates and for m
 
 # Using <a name="using"></a>
 
-Install the repo.
+## Install the repo.
 
 ```
 git clone git@github.com:boblund/brume-client.git
 cd brume-client
+```
+
+There are three examples showing the client use in NodeJS, browser and webview-nodejs. All the examples use a common set of Brume client core files. The browser and webview examples share a common set of files for presenting UI and logging into Brume.
+
+Rather than managing multiple copies of multiple files, run the command
+
+```
+fileSetup.sh
+```
+
+to replace copies of files with hardlinks.
+
+## Install and run the nodejs example
+
+```
+cd nodejs/files
 npm i
 ```
 
-There are three examples showing the client use in NodeJS, browser and webview-nodejs.
+NodeJS apps will normally use a JWT stored in a config file at a default location ```~/Brume/brume.conf```. This can be overridden by setting the environment variable ```BRUME_CONF```. A user's config file can be downloaded from https://brume.occams.solutions in the Account tab.
 
-## NodeJS
-
-NodeJS apps require a config file containing the JWT and server URL to connect to the Brume signaling server. The default location for this file is: ```~/Brume/brume.conf```. This can be overidden by setting the environment varailbe ```BRUME_CONFIG```. The config file can be obtained by signing into [brume.occams.solutions](https://brume.occams/solutions), going to the ```Account``` tab and clicking ```Update configuration```.
-
-The example has a sender and receiver app. These must be started with config files for different users. Assume you have two Brume accounts, 'alice' and 'bob'. The 'alice' config file is in the default location, i.e. ```~/Brume/brume.conf```. You've saved the 'bob' config in ```~/Brume/bob-brume.conf```. Then, to run the NodeJS example, in the brume-client directory start ```brumeReceiver.mjs``` first, then ```brumeSender```:
+In a terminal window start the receiver first:
 
 ```
-BRUME_CONFIG=~/Brume/joe.brume.conf node brumeReceiver.mjs&
-node brumeSender.mjs
+cd .. # putting you in brume-client/nodejs directory
+node brumeReceiver
 ```
 
-## Browser
-
-You'll need a web server for this example. One is included in this repo. In the brume-client directory do:
+In another terminal window start the sender with a different brume.conf:
 
 ```
-node server.js .
+BRUME_CONFIG=<path to some other brume.conf> node brumeSender.
 ```
 
-A server is started on a random unused port. Then, in two separate browser tabs, go to: ```localhost:port```. Sign in as 'alice' and 'bob' then click the call button in one of the tabs. In the other tab, click to accept the call.
-
-## Webview
-
-The webview example runs the same code as the browser example except in webview-nodejs.
+### Install and use the web example
 
 ```
-cd webview
+cd ../web/files
 npm i
-node webpackBrume.mjs&
+cd ..
+npm i
+npm run build
+```
+
+Start the server on some port:
+
+```
+PORT=<some port> node server.js .
+```
+
+If PORT is not set the server will choose some random unused port.
+
+In two different browser tabs go to ```localhost:port``` and log in with your Brume account email and password.
+
+### Install and use the webview example
+
+```
+cd ../webwebview/files
+npm i
+cd ..
+npm i
+npm run build
+```
+
+In two separate terminal windows run:
+
+```
 node webpackBrume.mjs
 ```
 
-This will start an two webviews. Then follow the same steps as the browser example.
+This will start two webviews. Then log in as in the web example.
 
 # License <a name="license"></a>
 
