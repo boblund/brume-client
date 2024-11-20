@@ -23,5 +23,11 @@
 			<div class="w3-cell-row" id="dataArea"></div>
 		</div>
 	</body>
-	<script src="main.js"></script>
+	<script type="module">
+		if ( typeof webview != 'undefined' ) {
+			await import( './dist/main.js' );
+		} else {
+			await import( './files/main.mjs ' );
+		}
+	</script>
 </html>

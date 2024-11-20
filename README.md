@@ -241,17 +241,17 @@ In another terminal window start the sender with a different brume.conf:
 BRUME_CONFIG=<path to some other brume.conf> node brumeSender.
 ```
 
-### Install and use the web example
+### Install and use the web examples
+
+The web example runs in a browser and webview-nodejs.
 
 ```
 cd ../web/files
 npm i
 cd ..
-npm i
-npm run build
 ```
 
-Start the server on some port:
+To run the browser example start the server on some port:
 
 ```
 PORT=<some port> node server.js .
@@ -261,23 +261,26 @@ If PORT is not set the server will choose some random unused port.
 
 In two different browser tabs go to ```localhost:port``` and log in with your Brume account email and password.
 
-### Install and use the webview example
+To run the webview example, you need to create a webpack bundle
 
 ```
-cd ../webwebview/files
-npm i
-cd ..
-npm i
+npm i			## in the ./web directory
 npm run build
 ```
 
 In two separate terminal windows run:
 
 ```
-node webpackBrume.mjs
+node webviewBrume.mjs
 ```
 
 This will start two webviews. Then log in as in the web example.
+
+Webview runs ```webview.html```. This file can also be run in the a browser.
+
+```
+localhost:port/webview.html
+```
 
 # License <a name="license"></a>
 

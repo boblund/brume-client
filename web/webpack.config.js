@@ -1,16 +1,32 @@
-var path = require("path");
+const path = require( 'path' );
+const webpack = require( 'webpack' );
 
 module.exports = {
-	//entry: ['/Users/blund/Documents/swdev/webview-nodejs-apps/x-browserBrume/main.mjs'], //[path.join(__dirname, "cip.mjs")],
 	mode: 'development',
 	devtool: false,
-	entry: [path.join(__dirname, "files/cognitoAuth.mjs")],
+	entry: [ path.join( __dirname, "files/main.mjs" ) ],
 	output: {
-		library: 'Cognito',
-		path: __dirname,
-		filename: 'files/cognitoAuth.js'
+		path: `${ __dirname }/dist/`,
+		filename: 'main.js'
 	},
-	resolve:{
-		fallback: { path: require.resolve("path-browserify")}
-	}
+	module: {
+		rules: [ {
+			use: [ 
+				{ loader: "ifdef-loader", options: {
+					WEBPACK: true,
+					"ifdef-uncomment-prefix": "// #code "
+				} }
+			]
+		} ]
+	},
+	resolve: {
+		fallback: { path: require.resolve( "path-browserify" ) }
+	},
+
+	plugins: [
+	// fix "process is not defined" error:
+		new webpack.ProvidePlugin( {
+			process: 'process/browser.js', // .js is needed
+		} ),
+	]
 };

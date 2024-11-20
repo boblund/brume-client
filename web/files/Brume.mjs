@@ -2,31 +2,34 @@ export { Brume };
 
 import { encodeMsg, decodeMsg, checkMsgType } from './peerMsgEncDec.mjs';
 import { log } from './logger.mjs';
+import { EventEmitter } from './events.mjs';
 
-const jwt = { decode( t ){ return JSON.parse( atob( t.split( '.' )[1] ) ); } },
-	OFFERTIMEOUT = 5 * 60 * 1000; // 5 minutes
+let refreshTokenAuth = () => {}; // webpack needs this but only called in nodejs
+let wrtc, SimplePeer;
 
 /// #if WEBPACK
 
-// #code import {EventEmitter} from 'events'; //webpack/fileGroup
-// #code import SimplePeer  from 'simple-peer';
+// webview
+// #code SimplePeer = ( await import( './simplepeer.min.js' ) ).default;
 
 /// #else
 
-let EventEmitter, wrtc, SimplePeer, refreshTokenAuth;
-
-if( typeof window == 'undefined' ) {
+if( typeof window !== 'undefined' ){
+	// browser
+	await import( './simplepeer.min.js' );
+	SimplePeer = window.SimplePeer;
+} else {
+	// nodejs
 	( { refreshTokenAuth } = await import( './cognitoAuth.mjs' ) );
-	( { EventEmitter } = await import( './events.mjs' ) );
 	SimplePeer = ( await import( 'simple-peer' ) ).default;
 	wrtc = ( await import( '@koush/wrtc' ) ).default;
 	global.WebSocket = ( await import( 'ws' ) ).default;
-} else {
-	SimplePeer = window.SimplePeer;
-	( { EventEmitter } = await import( './events.mjs' ) );
 }
 
 /// #endif
+
+const jwt = { decode( t ){ return JSON.parse( atob( t.split( '.' )[1] ) ); } };
+const OFFERTIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 function arrayClone( arr, n ) {
 	var copy = new Array( n );
@@ -161,18 +164,20 @@ class Brume extends EventEmitter {
 	static decodeMsg = decodeMsg;
 	#user = undefined;
 	#ws = undefined;
+	#wrtc = undefined;
 	#config = undefined;
 	#peers = {};
 	#offerProcessor = () => {};
 
-	constructor( config ){
+	constructor( { wrtc, WebSocket } = { wrtc: undefined, WebSocket: undefined } ){
 		super();
-		try {
-			if( config ){
-				this.#config = config;
-				this.#user = jwt.decode( config.token )['custom:brume_name'];
+		if( typeof window === 'undefined' ){
+			if( typeof wrtc === 'undefined' || typeof WebSocket === 'undefined' ){
+				throw( `Brume constructor requires wrtc and ws in nodejs` );
 			}
-		} catch( e ) { throw( e ); }
+			this.#wrtc = wrtc;
+			global.WebSocket = WebSocket;
+		}
 	}
 
 	async #openWs( { token, url } ){
@@ -189,13 +194,14 @@ class Brume extends EventEmitter {
 						// offer because of peer renegotiate
 						this.#peers[ from ].signal( data );
 					} else {
-						const peer = new SimplePeer( { trickle: true, ...( typeof wrtc != 'undefined' ? { wrtc } : {} ) } );
+						const peer = new SimplePeer( { trickle: true, ...( typeof this.#wrtc != 'undefined' ? { wrtc: this.#wrtc } : {} ) } );
 						peer.peerUsername = from;
 						this.#peers[ from ] = peer;
 						peer.on( 'data', ondataHandler );
 						peer.on( 'close', () => {
 							delete this.#peers[ from ];
 						} );
+						peer.on( 'error', ( e ) => { if( !e.message.includes( 'Close called' ) ) log.debug( e.message ); } );
 						peer.on( 'signal', data => {
 							log.debug( `brume signal: ${ data.type }` );
 							this.#ws.send( JSON.stringify( { action: 'send', to: from, data } ) );
@@ -261,7 +267,7 @@ class Brume extends EventEmitter {
 
 	async connect( to ){
 		if( this.#peers[ to ] !== undefined ) throw( `Peer connection to ${ to } exists` );
-		const peer = new SimplePeer( { initiator: true, trickle: true, ...( typeof wrtc != 'undefined' ? { wrtc } : {} ) } );
+		const peer = new SimplePeer( { initiator: true, trickle: true, ...( typeof this.#wrtc != 'undefined' ? { wrtc: this.#wrtc } : {} ) } );
 		peer.peerUsername = to;
 		this.#peers[ to ] = peer;
 		peer.on( 'data', ondataHandler );
@@ -308,7 +314,7 @@ class Brume extends EventEmitter {
 				await this.#openWs( { token: this.#config.token, url: this.#config.url } );
 				res();
 			} catch( e ) {
-				if( e?.code && e.code == '401' ){
+				if( typeof window === 'undefined' && e?.code && e.code == '401' ){
 					try{
 						let { IdToken } = await refreshTokenAuth( CLIENTID, this.#config.RefreshToken );
 						this.#config.token = IdToken;

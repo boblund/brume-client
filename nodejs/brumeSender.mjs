@@ -1,11 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
-import { Brume } from './files/Brume.mjs';
-
-function delay( msec ){
-	return new Promise( res => {
-		setTimeout( () => res(), msec );
-	} );
-}
+import { Brume } from './files/Brume.mjs'; //'../webview/files/Brume.mjs';
+import wrtc from '@koush/wrtc';
+import WebSocket from 'ws';
 
 const configFile = process.argv.length == 3
 	? process.argv[2]
@@ -20,7 +16,7 @@ config.url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume
 	let notdone = true;
 	try {
 		if( !config?.token || !config?.url ) throw( 'token or url not set' );
-		const brume = new Brume( config ); //(config);
+		const brume = new Brume( { wrtc, WebSocket } ); //(config);
 
 		brume.on( 'reauthorize', newconfig => {
 			Brume.log.debug( 'reauthorize' );
@@ -37,7 +33,7 @@ config.url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume
 			Brume.log.debug( JSON.stringify( e ) );
 		} );
 
-		await brume.start();
+		await brume.start( config );
 		Brume.log.debug( `${ brume.thisUser } connected to Brume server` );
 		const peer = await brume.connect( brume.thisUser == 'sam' ? 'joe' : 'sam' );
 		peer.on( 'data', data => {
@@ -52,6 +48,6 @@ config.url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume
 		peer.write( Brume.encodeMsg( { type: 'msg', data: 'howdy' } ) );
 		Brume.log.info( `sent message` );
 	} catch( e ){
-		Brume.log.debug( `error: ${ e.message }` );
+		Brume.log.error( e );
 	}
 } )();

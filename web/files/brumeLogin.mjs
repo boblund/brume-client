@@ -1,8 +1,46 @@
-'use strict';
-
 export {getToken};
 
-const userPassAuth = (typeof Cognito == 'undefined' ? await import('./cognitoAuth.mjs') : Cognito).userPassAuth;
+let Cognito = await import( './node_modules/amazon-cognito-identity-js/dist/amazon-cognito-identity.min.js' );
+if( Cognito?.__esModule !== true ){
+	Cognito = window.AmazonCognitoIdentity;
+}
+
+const poolData = {
+	UserPoolId: 'us-east-1_p5E3AsRc8',
+	ClientId: '6dspdoqn9q00f0v42c12qvkh5l'
+};
+
+const userPool = new Cognito.CognitoUserPool( poolData );
+
+function userPassAuth( username, password ) {
+	return new Promise( ( res, rej ) => {
+		const authenticationData = {
+			Username: username,
+			Password: password
+		};
+
+		const authenticationDetails = new Cognito.AuthenticationDetails( authenticationData );
+
+		const userData = {
+			Username: username,
+			Pool: userPool
+		};
+
+		const cognitoUser = new Cognito.CognitoUser( userData );
+
+		cognitoUser.authenticateUser( authenticationDetails, {
+			onSuccess: function( result ) {
+				cognitoUser.getUserAttributes( ( e, r ) => {
+					//const brume_name = r.reduce((a, e) => a = e.Name == 'custom:brume_name' ? e.Value : a, '');
+					res( { IdToken: result.getIdToken().getJwtToken() } );
+				} );
+			},
+			onFailure: function( err ) {
+				rej ( { error: err } );
+			}
+		} );
+	} );
+}
 
 let brumeLogin = null;
 

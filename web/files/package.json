@@ -1,15 +1,15 @@
 {
-  "name": "files",
+  "name": "brume-app",
   "version": "1.0.0",
-  "main": "cognitoAuth.js",
+  "description": "",
+  "main": "msin.mjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "@aws-sdk/client-cognito-identity-provider": "^3.687.0"
+    "amazon-cognito-identity-js": "^6.3.12",
+    "simple-peer": "^9.11.1"
   }
 }
