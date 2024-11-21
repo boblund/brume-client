@@ -1,6 +1,6 @@
 export {getToken};
 
-let Cognito = await import( './node_modules/amazon-cognito-identity-js/dist/amazon-cognito-identity.min.js' );
+let Cognito = await import( './amazon-cognito-identity.min.js' );
 if( Cognito?.__esModule !== true ){
 	Cognito = window.AmazonCognitoIdentity;
 }

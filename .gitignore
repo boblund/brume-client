@@ -1,7 +1,4 @@
 node_modules
 .DS_Store
-web/files/cognitoAuth.js
-webview/main.js
-webview/vendors-files_node_modules_aws-sdk_client-cognito-identity-provider_dist-es_CognitoIdentityPr-edf024.main.js
-webview/brume-app_cognitoAuth_mjs.main.js
-webview/files_cognitoAuth_mjs.main.js
+web/dist/
+
