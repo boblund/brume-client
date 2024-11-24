@@ -27,6 +27,7 @@ class Call extends HTMLElement {
 
 	connectedCallback() {
 		this.innerHTML = `
+			<div id="idP" style="float: left; margin-right: 5px;"></div>
 			<div class="w3-cell-row">
 				<div class="w3-container w3-cell">
 					<input id = "${this.id}-name" type = "text" 

@@ -29,8 +29,18 @@ function dialog( type, m ){
 const brume = new Brume(),
 	callElem = customElements.get( 'brume-call' ) ? document.getElementById( 'call' ) : null,
 	dataArea = document.querySelector( '#dataArea' ),
-	divLogin = document.querySelector( 'div#login' ),
+	//divLogin = document.querySelector( 'div#login' ),
+	brumeLogin = document.querySelector( '#brumelogin' ),
 	divApp = document.querySelector( 'div#app' );
+
+let serverConnection = false;
+brume.on( 'serverclose', () => {
+	serverConnection = false;
+	if( callElem.name.value == '' ){
+		divApp.hidden = true;
+		brumeLogin.hidden = false;
+	}
+} );
 
 let token = localStorage?.Authorization,
 	triedLogin = false;
@@ -40,6 +50,10 @@ function endPeerConnection( peer = undefined ) {
 	dataArea.innerHTML = '';
 	callElem.call();
 	callElem.name.value = '';
+	if( !serverConnection ){
+		divApp.hidden = true;
+		brumeLogin.hidden = false;
+	}
 }
 
 async function offerHandler( { peer, accept } ) {
@@ -82,20 +96,24 @@ brume.onconnection = offerHandler;
 while( true ){
 	try {
 		if( !token ) {
-			divLogin.style.display = '';
+			//divLogin.style.display = '';
+			brumeLogin.hidden = false;
 			token = await getToken();
 			//localStorage.Authorization = token;
 			triedLogin = true;
 		}
 		await brume.start( { token, url: 'wss://brume.occams.solutions/Prod' } );
+		serverConnection = true;
 		break;
 	} catch( e ) {
-		if( triedLogin ) await dialog( 'alert', `Connection to Brume failed. Try signing in again.` );
+		if( triedLogin ) await dialog( 'alert', `Connection to Brume failed: ( ${ e } ). Try signing in again.` );
 		token = null;
 		delete localStorage.Authorization;
 	}
 }
 
 document.querySelector( '#idP' ).innerHTML = `User: ${ brume.thisUser }`;
-divLogin.style.display = 'none';
+//divLogin.style.display = 'none';
+brumeLogin.hidden = true;
+brumeLogin.password.value = '';
 divApp.style.display = '';

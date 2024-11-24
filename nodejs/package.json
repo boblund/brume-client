@@ -6,8 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Bob Lund",
+  "license": "Creative Commons Attribution-NonCommercial 4.0 International",
   "dependencies": {
     "@koush/wrtc": "^0.5.3",
     "ws": "^8.18.0"

@@ -250,8 +250,10 @@ class Brume extends EventEmitter {
 		} );
 
 		this.#ws.addEventListener( 'close', ( event ) => {
-			//if( typeof window === 'undefined' ){
-			if( this.listeners( 'serverclose' ).length == 0 ) {
+			this.#ws = undefined;
+			this.emit( 'serverclose' );
+		} );
+		/*	if( this.listeners( 'serverclose' ).length == 0 ) {
 				setTimeout( async ()=>{ await this.start(); }, 10 * 1000 );  //give server time to delete closed session
 			} else {
 				this.emit( 'serverclose' );
@@ -259,7 +261,7 @@ class Brume extends EventEmitter {
 
 			clearInterval( pingInterval );
 			this.stop();
-		} );
+		} );*/
 	};
 
 	get thisUser() { return this.#user; }

@@ -72,18 +72,23 @@ async function processLogin() {
 			brumeLogin.loginStatus.innerHTML = result.error;
 		}
 		delete localStorage.Authorization;
+		loginCallBack( { error: result.error } );
 	} else {
 		if(brumeLogin.stayLoggedInCb.checked)
 			localStorage.Authorization = result.IdToken;
-		loginCallBack(result.IdToken);
+		loginCallBack( { token: result.IdToken } );
 	}
 }
 
 
 function getToken() {
-	return new Promise((res, rej) => {
-		loginCallBack = (token) => {
-			res(token);
+	return new Promise( ( res, rej ) => {
+		loginCallBack = ( result ) => {
+			if( result?.token ) {
+				res( result.token );
+			} else {
+				rej( result.error );
+			}
 		};
-	});
+	} );
 }
