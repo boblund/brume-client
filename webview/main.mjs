@@ -1,7 +1,5 @@
-import './brume-elements.mjs';
-import { Brume } from './Brume.mjs';
-import { getToken } from './brumeLogin.mjs';
-
+import { Brume } from 'brume-core';
+import { getToken } from 'brume-web';
 
 // Dialog
 const cancelBtn = document.querySelector( "#cancelBtn" );
@@ -29,7 +27,6 @@ function dialog( type, m ){
 const brume = new Brume(),
 	callElem = customElements.get( 'brume-call' ) ? document.getElementById( 'call' ) : null,
 	dataArea = document.querySelector( '#dataArea' ),
-	//divLogin = document.querySelector( 'div#login' ),
 	brumeLogin = document.querySelector( '#brumelogin' ),
 	divApp = document.querySelector( 'div#app' );
 
@@ -113,7 +110,6 @@ while( true ){
 }
 
 document.querySelector( '#idP' ).innerHTML = `User: ${ brume.thisUser }`;
-//divLogin.style.display = 'none';
 brumeLogin.hidden = true;
 brumeLogin.password.value = '';
 divApp.style.display = '';

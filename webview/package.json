@@ -1,0 +1,25 @@
+{
+  "name": "brume-client",
+  "version": "1.0.0",
+  "description": "Brume client examples",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "ln node_modules/simple-peer/simplepeer.min.js node_modules/brume-core/simplepeer.min.js",
+    "build": "webpack"
+  },
+  "author": "",
+  "license": "CC-BY-NC-4.0",
+  "dependencies": {
+    "brume-core": "github:boblund/brume-core",
+    "brume-web": "github:boblund/brume-web",
+    "webview-nodejs": "^0.4.3"
+  },
+  "devDependencies": {
+    "ifdef-loader": "^2.3.2",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^5.1.4"
+  }
+}

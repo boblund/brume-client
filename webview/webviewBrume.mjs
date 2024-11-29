@@ -5,7 +5,7 @@ import {join} from 'path';
 import {URL} from 'url';
 
 const __dirname = new URL('.', import.meta.url).pathname;
-const htmlFile =  'webview.html'; // 'newindex.html';
+const htmlFile =  'index.html';
 
 function main() {
 	const w = new Webview(true);

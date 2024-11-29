@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs';
-import { Brume } from './files/Brume.mjs';
+//import { Brume } from '../core/Brume.mjs';
+import { Brume } from 'brume-core';
 import wrtc from '@koush/wrtc';
 import WebSocket from 'ws';
 

@@ -4,7 +4,8 @@ const webpack = require( 'webpack' );
 module.exports = {
 	mode: 'development',
 	devtool: false,
-	entry: [ path.join( __dirname, "files/main.mjs" ) ],
+	entry: [ path.join( __dirname, "./main.mjs" ) ],
+	//entry: [ path.join( __dirname, "../browser/main.mjs" ) ],
 	output: {
 		path: `${ __dirname }/dist/`,
 		filename: 'main.js'
