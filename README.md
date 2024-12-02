@@ -209,20 +209,15 @@ git clone git@github.com:boblund/brume-client.git
 cd brume-client
 ```
 
-There are three examples showing the client use in NodeJS, browser and webview-nodejs. All the examples use a common set of Brume client core files. The browser and webview examples share a common set of files for presenting UI and logging into Brume.
+There are three examples showing the client use in NodeJS, browser and webview-nodejs. The client comprises three repos:
+* [brume-core](https://github.com/boblund/brume-core): the Brume api
+* [brume-auth](https://github.com/boblund/brume-auth): authentication for nodejs
+* [brume-web](https://github.com/boblund/brume-web): HTML and JavaScript for browser and webview app login
 
-Rather than managing multiple copies of multiple files, run the command
-
-```
-fileSetup.sh
-```
-
-to replace copies of files with hardlinks.
-
-## Install and run the nodejs example
+## Run the nodejs example
 
 ```
-cd nodejs/files
+cd nodejs
 npm i
 ```
 
@@ -241,19 +236,11 @@ In another terminal window start the sender with a different brume.conf:
 BRUME_CONFIG=<path to some other brume.conf> node brumeSender.
 ```
 
-### Install and use the web examples
-
-The web example runs in a browser and webview-nodejs.
+### Run the browser example
 
 ```
-cd ../web/files
+cd browser
 npm i
-cd ..
-```
-
-To run the browser example start the server on some port:
-
-```
 PORT=<some port> node server.js .
 ```
 
@@ -261,10 +248,11 @@ If PORT is not set the server will choose some random unused port.
 
 In two different browser tabs go to ```localhost:port``` and log in with your Brume account email and password.
 
-To run the webview example, you need to create a webpack bundle
+### Run the webview example
 
 ```
-npm i			## in the ./web directory
+cd webview
+npm i
 npm run build
 ```
 
@@ -274,13 +262,16 @@ In two separate terminal windows run:
 node webviewBrume.mjs
 ```
 
-This will start two webviews. Then log in as in the web example.
+This will start two webviews. Then log in with your Brume account email and password.
 
-Webview runs ```webview.html```. This file can also be run in the a browser.
+The result of the webview build (webview/index.hml) can also be run in the a browser.
 
 ```
-localhost:port/webview.html
+cd browser
+PORT=<some port> node server.js ../webview
 ```
+
+In two different browser tabs go to ```localhost:port``` and log in with your Brume account email and password.
 
 # License <a name="license"></a>
 
