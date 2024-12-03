@@ -1,8 +1,11 @@
 # Brume Client
 
-Brume provides user-to-user (AKA peer-to-peer) data/voice/video between Brume users. Communication is directly between user devices without traversing a central server. Brume has three components:
-- The core which provides [user onboarding and management](https://brume.occams.solutions) and a peer-to-peer signaling server to connect Brume users.
-- The Brume client Javascript library that provides an API for web or platform-specific applications to establish connections to the Brume signaling server and between Brume clients. The client library can be used in browsers, [NodeJS](https://nodejs.org) and [Webview](https://github.com/boblund/brume-webviewapps).
+Brume provides user-to-user (AKA peer-to-peer) data/voice/video between Brume users. Communication is directly between user devices without traversing a central server. This repo ```brume-client``` contains example Brume [NodeJS](https://nodejs.org), browser and [webview-nodejs](https://github.com/Winterreisender/webview-nodejs) applications.  
+
+Brume has three components:
+- [User onboarding and management](https://brume.occams.solutions) and a peer-to-peer signaling server to connect Brume users.
+- The [brume-core](https://github.com/boblund/brume-core) API that applications use.
+- [Brume-auth](https://github.com/boblund/brume-auth) and [brume-web](https://github.com/boblund/brume-web) that provide Brume server authentication, and web login, respectively.
 - A [video chat and file transfer app](https://brume.occams.solutions/webapp). Simple example data sender and receiver apps are provided in this repo.
 
 [Brume System Overview](#architecture)
@@ -18,22 +21,20 @@ Brume provides user-to-user (AKA peer-to-peer) data/voice/video between Brume us
 # Brume System Overview <a name="architecture"></a>
 
 <img style="margin-right: 20px; margin-left: 100px;" align="right" src="./Brume.drawio.png">
-From a user's perspective the Brume system is a user account and applications that connect to each other using the Brume name. A user account is created using the [management system](https://brume.occams.solutions). New users get a free trial with 1,000 connection attempts that are valid for one year. Additional connetion attempts can be purchased.
-
-Brume applications use the Brume client to establish signaling connections to the signaling server using the Brume name.  An application establishes a peer-to-peer connection to another receiving application using that application's Brume name. Each attempt by a Brume user to connect to another user is a <i>connection attempt</i>.
+From a user's perspective the Brume system is a user account and applications that connect to each other using their Brume user name. A user account is created using the [management system](https://brume.occams.solutions). New users get a free trial with 1,000 connection attempts that are valid for one year. Additional connetion attempts can be purchased.  
+  
+Brume applications use the Brume client to first establish a signaling connections to the server, then establish a peer-to-peer connection to another application using that application's Brume user name. Each attempt by a Brume user to connect to another user is a <i>connection attempt</i>.
 
 # Client Interface <a name="client"></a>
-
-The Brume Client library is used in an application to create a client instance.
 
 ## Constructor
 
 ```
 import { Brume } from './Brume.mjs';
-const brume = new Brume;
+const brume = new Brume( { wrtc, WebSocket } );
 ```
 
-Creates a new Brume instance. Returns a Brume instance.
+Creates a new Brume instance.  ```{ wrtc, WebSocket }``` must be supplied when used in NodeJS. Returns a Brume instance.
 
 ## Methods
 
@@ -52,11 +53,12 @@ brume.start( { token, url } );
 ```
 ### peer = await brume.connect( brumeName )
 
-Creates a new WebRTC peer connection with a data channel to the Brume user specified by ```brumeName <string>```. Returns a Promise that resolves to a [simple-peer instance](#peer) or is rejected with an error code:  
+Creates a new WebRTC, or returns an existing, peer connection with a data channel to the Brume user specified by ```brumeName <string>```. Returns a Promise that resolves to a [simple-peer instance](#peer) or is rejected with an error code:  
 
 ```'ENODEST'``` brumeName is not connected to the Brume signaling server.  
 ```'EBADDEST'``` brumeName is not a Brume name.  
 ```'EOFFERTIMEOUT'``` The attempt to connect to brumeName timed out.  
+```'ENOSRV'``` Cannot create new peer because no signalling server connection.  
 ```'ESERVER'``` An unspecified Brume signaling server error. 
 
 ```

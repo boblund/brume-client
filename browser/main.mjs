@@ -1,4 +1,4 @@
-import { Brume } from './node_modules/brume-core/Brume.mjs';
+import { Brume } from './node_modules/brume-client-api/Brume.mjs';
 import { getToken } from '/node_modules/brume-web/brumeLogin.mjs';
 
 // Dialog

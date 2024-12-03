@@ -1,4 +1,4 @@
-import { Brume } from 'brume-core';
+import { Brume } from 'brume-client-api';
 import { getToken } from 'brume-web';
 
 // Dialog
