@@ -23,9 +23,9 @@ config.url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume
 			writeFileSync( configFile, JSON.stringify( { ...newconfig, url: config.url } ) );
 		} );
 
-		brume.on( 'serverclose', () => {
-			Brume.log.debug( 'server restart' );
-			setTimeout( async ()=>{ await brume.start(); }, 10 * 1000 );
+		brume.on( 'serverclose', ( e ) => {
+			Brume.log.info( `serverclose: ${ `serverclose: ${ e.code } ${ e.message }` }` );
+			process.exit( 0 );
 		} );
 
 		brume.on( 'error', e => {
@@ -35,6 +35,7 @@ config.url = process.env?.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume
 
 		await brume.start( config );
 		Brume.log.debug( `${ brume.thisUser } connected to Brume server` );
+
 		const peer = await brume.connect( brume.thisUser == 'sam' ? 'joe' : 'sam' );
 		peer.on( 'data', data => {
 			Brume.log.info( `Message from ${ peer.peerUsername }: ${ JSON.stringify( Brume.decodeMsg( data ) ) }` );

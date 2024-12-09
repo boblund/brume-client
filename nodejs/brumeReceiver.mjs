@@ -23,9 +23,9 @@ config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.
 			writeFileSync( configFile, JSON.stringify( { ...newconfig, url: config.url } ) );
 		} );
 
-		brume.on( 'serverclose', () => {
-			Brume.log.debug( 'server restart' );
-			setTimeout( async ()=>{ await brume.start(); }, 10 * 1000 );
+		brume.on( 'serverclose', ( e ) => {
+			Brume.log.info( `serverclose: ${ `serverclose: ${ e.code } ${ e.message }` }` );
+			process.exit( 0 );
 		} );
 
 		brume.on( 'error', e => {
