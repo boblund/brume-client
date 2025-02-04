@@ -1,5 +1,5 @@
 import { Brume } from './node_modules/brume-client-api/Brume.mjs';
-import { getToken } from '/node_modules/brume-web/brumeLogin.mjs';
+import { getToken } from './node_modules/brume-web/brumeLogin.mjs';
 
 // Dialog
 const cancelBtn = document.querySelector( "#cancelBtn" );
@@ -61,7 +61,7 @@ async function offerHandler( { peer, accept } ) {
 		peer.on( 'data', data => {
 			dataArea.innerHTML = `Data from ${ peer.peerUsername }: ${ JSON.stringify( Brume.decodeMsg( data ) ) }`;
 		} );
-		
+
 		await accept();
 		callElem.name.value = `call from ${ peer.peerUsername }`;
 		callElem.hangUpBtn.addEventListener( "click", () => { endPeerConnection( peer ); } );
@@ -69,9 +69,9 @@ async function offerHandler( { peer, accept } ) {
 	}
 };
 
-callElem.callBtn.addEventListener( 'click', async ( e ) => {	
-	let peer = undefined;	 
-	if ( callElem.name.value.length > 0 ) { 
+callElem.callBtn.addEventListener( 'click', async ( e ) => {
+	let peer = undefined;
+	if ( callElem.name.value.length > 0 ) {
 		try {
 			peer = await brume.connect( callElem.name.value );
 		} catch( e ) {

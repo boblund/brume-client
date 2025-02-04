@@ -11,8 +11,8 @@
   "author": "",
   "license": "CC-BY-NC-4.0",
   "dependencies": {
-    "brume-client-api": "github:boblund/brume-client-api",
-    "brume-web": "github:boblund/brume-web",
+    "brume-client-api": "github:boblund/brume-client-api#main",
+    "brume-web": "github:boblund/brume-web#main",
     "webview-nodejs": "^0.4.3"
   },
   "devDependencies": {

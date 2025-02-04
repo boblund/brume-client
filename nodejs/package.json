@@ -11,7 +11,7 @@
   "dependencies": {
     "@koush/wrtc": "^0.5.3",
     "brume-auth": "github:boblund/brume-auth",
-    "brume-client-api": "github:boblund/brume-client-api",
+    "brume-client-api": "github:boblund/brume-client-api#main",
     "ws": "^8.18.0"
   }
 }

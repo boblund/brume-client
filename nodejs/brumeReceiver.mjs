@@ -9,7 +9,7 @@ const configFile = process.argv.length == 3
 	: process.env.BRUME_CONFIG
 		? process.env.BRUME_CONFIG
 		: process.env.HOME + '/Brume/brume.conf';
-	
+
 const config = JSON.parse( readFileSync( configFile, 'utf-8' ) );
 config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.occams.solutions/Prod';
 
@@ -37,11 +37,11 @@ config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.
 		brume.onconnection = async ( { peer, accept } ) => {
 			peer.on( 'data', _data => {
 				const data = Brume.decodeMsg( _data );
-				Brume.log.info( `Message from ${ peer.peerUsername }: ${ JSON.stringify( data ) }` ); 
+				Brume.log.info( `Message from ${ peer.peerUsername }: ${ JSON.stringify( data ) }` );
 				peer.send( Brume.encodeMsg( { type: 'msg', data: 'Howdy' } ) );
 			} );
-			peer.on( 'close', () => { 
-				Brume.log.debug( `peer closed` );
+			peer.on( 'close', () => {
+				Brume.log.info( `peer closed` );
 				process.exit( 0 ); } );
 			peer.on( 'error', ( e ) => { Brume.log.debug( `peer error` ); } );
 			await accept(); //accept connection
