@@ -4,11 +4,10 @@ const webpack = require( 'webpack' );
 module.exports = {
 	mode: 'development',
 	devtool: false,
-	//entry: ['./brume-app/main.mjs'],
-	entry: [ path.join( __dirname, "brume-app/main.mjs" ) ],
+	entry: [ path.join( __dirname, "./main.mjs" ) ],
+	//entry: [ path.join( __dirname, "../browser/main.mjs" ) ],
 	output: {
-	//path: path.resolve(__dirname),
-		path: __dirname,
+		path: `${ __dirname }/dist/`,
 		filename: 'main.js'
 	},
 	module: {
@@ -22,7 +21,10 @@ module.exports = {
 		} ]
 	},
 	resolve: {
-		fallback: { path: require.resolve( "path-browserify" ) }
+		fallback: {
+			path: require.resolve( "path-browserify" ),
+			"crypto": false
+		}
 	},
 
 	plugins: [

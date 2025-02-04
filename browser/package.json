@@ -1,0 +1,17 @@
+{
+  "name": "browser",
+  "version": "1.0.0",
+  "description": "browser app",
+  "main": "main.mjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "ln node_modules/simple-peer/simplepeer.min.js node_modules/brume-client-api/simplepeer.min.js"
+  },
+  "author": "Bob Lund",
+  "license": "CC-BY-NC-4.0",
+  "dependencies": {
+    "brume-client-api": "github:boblund/brume-client-api#main",
+    "brume-web": "github:boblund/brume-web#main",
+    "express": "^4.21.1"
+  }
+}

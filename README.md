@@ -1,8 +1,11 @@
 # Brume Client
 
-Brume provides user-to-user (AKA peer-to-peer) data/voice/video between Brume users. Communication is directly between user devices without traversing a central server. Brume has three components:
-- The core which provides [user onboarding and management](https://brume.occams.solutions) and a peer-to-peer signaling server to connect Brume users.
-- The Brume client Javascript library that provides an API for web or platform-specific applications to establish connections to the Brume signaling server and between Brume clients. The client library can be used in browsers, [NodeJS](https://nodejs.org) and [Webview](https://github.com/boblund/brume-webviewapps).
+Brume provides user-to-user (AKA peer-to-peer) data/voice/video between Brume users. Communication is directly between user devices without traversing a central server. This repo ```brume-client``` contains example Brume [NodeJS](https://nodejs.org), browser and [webview-nodejs](https://github.com/Winterreisender/webview-nodejs) applications.  
+
+Brume has three components:
+- [User onboarding and management](https://brume.occams.solutions) and a peer-to-peer signaling server to connect Brume users.
+- The [brume-core](https://github.com/boblund/brume-core) API that applications use.
+- [Brume-auth](https://github.com/boblund/brume-auth) and [brume-web](https://github.com/boblund/brume-web) that provide Brume server authentication, and web login, respectively.
 - A [video chat and file transfer app](https://brume.occams.solutions/webapp). Simple example data sender and receiver apps are provided in this repo.
 
 [Brume System Overview](#architecture)
@@ -11,29 +14,27 @@ Brume provides user-to-user (AKA peer-to-peer) data/voice/video between Brume us
 
 [Peer instance](#peer)
 
-[Using the example](#using)
+[Installation and examples](#using)
 
 [License](#license)
 
 # Brume System Overview <a name="architecture"></a>
 
 <img style="margin-right: 20px; margin-left: 100px;" align="right" src="./Brume.drawio.png">
-From a user's perspective the Brume system is a user account and applications that connect to each other using the Brume name. A user account is created using the [management system](https://brume.occams.solutions). New users get a free trial with 1,000 connection attempts that are valid for one year. Additional connetion attempts can be purchased.
-
-Brume applications use the Brume client to establish signaling connections to the signaling server using the Brume name.  An application establishes a peer-to-peer connection to another receiving application using that application's Brume name. Each attempt by a Brume user to connect to another user is a <i>connection attempt</i>.
+From a user's perspective the Brume system is a user account and applications that connect to each other using their Brume user name. A user account is created using the [management system](https://brume.occams.solutions). New users get a free trial with 1,000 connection attempts that are valid for one year. Additional connetion attempts can be purchased.  
+  
+Brume applications use the Brume client to first establish a signaling connections to the server, then establish a peer-to-peer connection to another application using that application's Brume user name. Each attempt by a Brume user to connect to another user is a <i>connection attempt</i>.
 
 # Client Interface <a name="client"></a>
-
-The Brume Client library is used in an application to create a client instance.
 
 ## Constructor
 
 ```
 import { Brume } from './Brume.mjs';
-const brume = new Brume;
+const brume = new Brume( { wrtc, WebSocket } );
 ```
 
-Creates a new Brume instance. Returns a Brume instance.
+Creates a new Brume instance.  ```{ wrtc, WebSocket }``` must be supplied when used in NodeJS. Returns a Brume instance.
 
 ## Methods
 
@@ -52,11 +53,12 @@ brume.start( { token, url } );
 ```
 ### peer = await brume.connect( brumeName )
 
-Creates a new WebRTC peer connection with a data channel to the Brume user specified by ```brumeName <string>```. Returns a Promise that resolves to a [simple-peer instance](#peer) or is rejected with an error code:  
+Creates a new WebRTC, or returns an existing, peer connection with a data channel to the Brume user specified by ```brumeName <string>```. Returns a Promise that resolves to a [simple-peer instance](#peer) or is rejected with an error code:  
 
 ```'ENODEST'``` brumeName is not connected to the Brume signaling server.  
 ```'EBADDEST'``` brumeName is not a Brume name.  
 ```'EOFFERTIMEOUT'``` The attempt to connect to brumeName timed out.  
+```'ENOSRV'``` Cannot create new peer because no signalling server connection.  
 ```'ESERVER'``` An unspecified Brume signaling server error. 
 
 ```
@@ -202,49 +204,76 @@ The Brume instance acts on these events to manage the peers it creates and for m
 
 # Using <a name="using"></a>
 
-Install the repo.
+## Install the repo.
 
 ```
 git clone git@github.com:boblund/brume-client.git
 cd brume-client
+```
+
+There are three examples showing the client use in NodeJS, browser and webview-nodejs. The client comprises three repos:
+* [brume-core](https://github.com/boblund/brume-core): the Brume api
+* [brume-auth](https://github.com/boblund/brume-auth): authentication for nodejs
+* [brume-web](https://github.com/boblund/brume-web): HTML and JavaScript for browser and webview app login
+
+## Run the nodejs example
+
+```
+cd nodejs
 npm i
 ```
 
-There are three examples showing the client use in NodeJS, browser and webview-nodejs.
+NodeJS apps will normally use a JWT stored in a config file at a default location ```~/Brume/brume.conf```. This can be overridden by setting the environment variable ```BRUME_CONF```. A user's config file can be downloaded from https://brume.occams.solutions in the Account tab.
 
-## NodeJS
-
-NodeJS apps require a config file containing the JWT and server URL to connect to the Brume signaling server. The default location for this file is: ```~/Brume/brume.conf```. This can be overidden by setting the environment varailbe ```BRUME_CONFIG```. The config file can be obtained by signing into [brume.occams.solutions](https://brume.occams/solutions), going to the ```Account``` tab and clicking ```Update configuration```.
-
-The example has a sender and receiver app. These must be started with config files for different users. Assume you have two Brume accounts, 'alice' and 'bob'. The 'alice' config file is in the default location, i.e. ```~/Brume/brume.conf```. You've saved the 'bob' config in ```~/Brume/bob-brume.conf```. Then, to run the NodeJS example, in the brume-client directory start ```brumeReceiver.mjs``` first, then ```brumeSender```:
+In a terminal window start the receiver first:
 
 ```
-BRUME_CONFIG=~/Brume/joe.brume.conf node brumeReceiver.mjs&
-node brumeSender.mjs
+cd .. # putting you in brume-client/nodejs directory
+node brumeReceiver
 ```
 
-## Browser
-
-You'll need a web server for this example. One is included in this repo. In the brume-client directory do:
+In another terminal window start the sender with a different brume.conf:
 
 ```
-node server.js .
+BRUME_CONFIG=<path to some other brume.conf> node brumeSender.
 ```
 
-A server is started on a random unused port. Then, in two separate browser tabs, go to: ```localhost:port```. Sign in as 'alice' and 'bob' then click the call button in one of the tabs. In the other tab, click to accept the call.
+### Run the browser example
 
-## Webview
+```
+cd browser
+npm i
+PORT=<some port> node server.js .
+```
 
-The webview example runs the same code as the browser example except in webview-nodejs.
+If PORT is not set the server will choose some random unused port.
+
+In two different browser tabs go to ```localhost:port``` and log in with your Brume account email and password.
+
+### Run the webview example
 
 ```
 cd webview
 npm i
-node webpackBrume.mjs&
-node webpackBrume.mjs
+npm run build
 ```
 
-This will start an two webviews. Then follow the same steps as the browser example.
+In two separate terminal windows run:
+
+```
+node webviewBrume.mjs
+```
+
+This will start two webviews. Then log in with your Brume account email and password.
+
+The result of the webview build (webview/index.hml) can also be run in the a browser.
+
+```
+cd browser
+PORT=<some port> node server.js ../webview
+```
+
+In two different browser tabs go to ```localhost:port``` and log in with your Brume account email and password.
 
 # License <a name="license"></a>
 

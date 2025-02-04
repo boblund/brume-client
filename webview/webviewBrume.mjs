@@ -5,11 +5,11 @@ import {join} from 'path';
 import {URL} from 'url';
 
 const __dirname = new URL('.', import.meta.url).pathname;
-const htmlFile = 'index.html';
+const htmlFile =  'index.html';
 
 function main() {
 	const w = new Webview(true);
-	w.title("File Browser Brume");
+	w.title("Webview Brume");
 	w.size(600, 400);
 	w.navigate(`file://${join(__dirname, htmlFile)}`);
 	w.init(`
