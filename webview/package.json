@@ -5,14 +5,16 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "ln node_modules/simple-peer/simplepeer.min.js node_modules/brume-client-api/simplepeer.min.js",
-    "build": "webpack"
+		"cp-cognitominjs": "cp -f node_modules/amazon-cognito-identity-js/dist/amazon-cognito-identity.min.js node_modules/brume-web",
+		"ln-simplepeer": "ln node_modules/simple-peer/simplepeer.min.js node_modules/brume-client-api/simplepeer.min.js",
+		"postinstall": "npm run cp-cognitominjs && npm run ln-simplepeer",
+		"build": "webpack"
   },
   "author": "",
   "license": "CC-BY-NC-4.0",
   "dependencies": {
     "brume-client-api": "github:boblund/brume-client-api#main",
-    "brume-web": "github:boblund/brume-web#main",
+    "brume-web": "github:boblund/brume-web#cognitodep",
     "webview-nodejs": "^0.4.3"
   },
   "devDependencies": {
