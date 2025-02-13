@@ -1,20 +1,15 @@
 {
   "name": "browser",
   "version": "1.0.0",
-  "description": "browser app",
+  "description": "brume-client-api browser example",
   "main": "main.mjs",
   "scripts": {
-		"cp-cognitominjs": "cp -f node_modules/amazon-cognito-identity-js/dist/amazon-cognito-identity.min.js node_modules/brume-web",
-		"cp-simplepeerminjs": "cp -f node_modules/simple-peer/simplepeer.min.js node_modules/brume-client-api/",
-    "rm-node_modules": "find node_modules -mindepth 1 -maxdepth 1 ! -name 'brume-client-api' ! -name 'brume-web' ! -name 'simple-peer' -exec rm -rf {} +",
-		"postinstall": "npm run cp-cognitominjs && npm run cp-simplepeerminjs && npm run rm-node_modules",
     "test": "echo \"Error: no test specified\" && exit 1"
-	},
-  "author": "Bob Lund",
-  "license": "CC-BY-NC-4.0",
+  },
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "brume-client-api": "github:boblund/brume-client-api#main",
-    "brume-web": "github:boblund/brume-web#cognitodep",
-    "express": "^4.21.1"
+    "brume-client-api": "github:boblund/brume-client-api",
+    "brume-web": "github:boblund/brume-web#cognitodep"
   }
 }
