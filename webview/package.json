@@ -11,7 +11,7 @@
   "license": "CC-BY-NC-4.0",
   "dependencies": {
     "brume-client-api": "github:boblund/brume-client-api",
-    "brume-web": "github:boblund/brume-web#cognitodep",
+    "brume-web": "github:boblund/brume-web",
     "webview-nodejs": "^0.4.3"
   },
   "devDependencies": {

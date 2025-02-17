@@ -10,6 +10,6 @@
   "license": "ISC",
   "dependencies": {
     "brume-client-api": "github:boblund/brume-client-api",
-    "brume-web": "github:boblund/brume-web#cognitodep"
+    "brume-web": "github:boblund/brume-web"
   }
 }
