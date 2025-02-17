@@ -1,28 +1,5 @@
 import { Brume } from './node_modules/brume-client-api/Brume.mjs';
-import { getToken } from './node_modules/brume-web/brumeLogin.mjs';
-
-// Dialog
-const cancelBtn = document.querySelector( "#cancelBtn" );
-const OKBtn = document.querySelector( "#OKBtn" );
-const dialogDiv = document.querySelector( "#dialogDiv" );
-const dialogMsg = document.querySelector( "#dialogMsg" );
-
-function btnHandler( e, res ) {
-	dialogDiv.hidden = true;
-	cancelBtn.removeEventListener( 'click', btnHandler );
-	OKBtn.removeEventListener( 'click', btnHandler );
-	res( e.currentTarget.firstChild.data == 'OK' ? true : false );
-}
-
-function dialog( type, m ){
-	return new Promise( ( res, rej ) => {
-		dialogMsg.innerHTML = m;
-		cancelBtn.style.visibility = type == 'alert' ? 'hidden' : 'visible';
-		dialogDiv.hidden = false;
-		cancelBtn.addEventListener( 'click', ( e ) => btnHandler( e, res ) );
-		OKBtn.addEventListener( 'click', ( e ) => btnHandler( e, res ) );
-	} );
-}; // end Dialog
+import { dialog, getToken } from './node_modules/brume-web/index.mjs';
 
 const brume = new Brume(),
 	callElem = customElements.get( 'brume-call' ) ? document.getElementById( 'call' ) : null,
