@@ -1,5 +1,5 @@
 {
-  "name": "newnodejs",
+  "name": "nodejs",
   "version": "1.0.0",
   "description": "brume-client-api nodejs example",
   "main": "main.mjs",
@@ -9,9 +9,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "brume-auth": "github:boblund/brume-auth",
     "brume-client-api": "github:boblund/brume-client-api",
-    "brume-web": "github:boblund/brume-web",
-		"@koush/wrtc": "^0.5.3",
-    "ws": "^8.18.1"
+    "@koush/wrtc": "^0.5.3",
+    "ws": "^8.18.0"
   }
 }
