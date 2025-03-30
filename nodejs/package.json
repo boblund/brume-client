@@ -1,8 +1,8 @@
 {
   "name": "nodejs",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "brume-client-api nodejs example",
+  "main": "main.mjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
