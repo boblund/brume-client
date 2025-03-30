@@ -1,0 +1,17 @@
+{
+  "name": "newnodejs",
+  "version": "1.0.0",
+  "description": "brume-client-api nodejs example",
+  "main": "main.mjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "brume-client-api": "github:boblund/brume-client-api",
+    "brume-web": "github:boblund/brume-web",
+		"@koush/wrtc": "^0.5.3",
+    "ws": "^8.18.1"
+  }
+}
