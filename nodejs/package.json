@@ -9,9 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@koush/wrtc": "^0.5.3",
     "brume-client-api": "github:boblund/brume-client-api",
-    "brume-web": "github:boblund/brume-web",
-		"@koush/wrtc": "^0.5.3",
     "ws": "^8.18.1"
   }
 }
