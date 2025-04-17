@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs';
-//import { Brume } from '../core/Brume.mjs';
 import { Brume } from 'brume-client-api';
+import { refreshTokenAuth } from 'brume-auth';
 import wrtc from '@koush/wrtc';
 import WebSocket from 'ws';
 
@@ -13,15 +13,11 @@ const configFile = process.argv.length == 3
 const config = JSON.parse( readFileSync( configFile, 'utf-8' ) );
 config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.occams.solutions/Prod';
 
+let brume;
 ( async function () {
 	try{
 		if( !config?.token || !config?.url ) throw( 'token or url not set' );
-		const brume = new Brume( { wrtc, WebSocket } );
-
-		brume.on( 'reauthorize', newconfig => {
-			Brume.log.debug( 'reauthorize' );
-			writeFileSync( configFile, JSON.stringify( { ...newconfig, url: config.url } ) );
-		} );
+		brume = new Brume( { wrtc, WebSocket } );
 
 		brume.on( 'serverclose', ( e ) => {
 			Brume.log.info( `serverclose: ${ `serverclose: ${ e.code } ${ e.message }` }` );
@@ -32,7 +28,21 @@ config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.
 			Brume.log.debug.error( JSON.stringify( e ) );
 		} );
 
-		await brume.start( config );
+		try{
+			await brume.start( config );
+		} catch( e ){
+			if( e?.code && e.code == '401' ){
+				config.token = ( await refreshTokenAuth( config.RefreshToken, brume.thisUser ) ).IdToken;
+				writeFileSync( configFile, JSON.stringify( { ...config, url: config.url } ) );
+				try{
+					await brume.start( config );
+				} catch( e ){
+					throw( `refresh brume.start error: ${ e }` );
+				}
+			} else {
+				throw( `brume.start error: ${ e }` );
+			}
+		}
 		Brume.log.info( `${ brume.thisUser } connected to Brume server` );
 		brume.onconnection = async ( { peer, accept } ) => {
 			peer.on( 'data', _data => {
@@ -48,5 +58,6 @@ config.url = process.env.BRUME_SERVER ? process.env.BRUME_SERVER : 'wss://brume.
 		};
 	} catch( e ){
 		Brume.log.error( e );
+		process.exit( 1 );
 	}
 } )();
