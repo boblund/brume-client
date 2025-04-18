@@ -4,6 +4,11 @@ import { refreshTokenAuth } from 'brume-auth';
 import wrtc from '@koush/wrtc';
 import WebSocket from 'ws';
 
+if( process.argv.length !== 3 ){
+	Brume.log.warn( `Usage: node brumeSender.mjs brumeUserName` );
+	process.exit( 1 );
+}
+
 const configFile = process.env.BRUME_CONFIG
 	? process.env.BRUME_CONFIG
 	: process.env.HOME + '/Brume/brume.conf';
