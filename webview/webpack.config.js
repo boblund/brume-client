@@ -12,7 +12,7 @@ module.exports = {
 	},
 	module: {
 		rules: [ {
-			use: [ 
+			use: [
 				{ loader: "ifdef-loader", options: {
 					WEBPACK: true,
 					"ifdef-uncomment-prefix": "// #code "

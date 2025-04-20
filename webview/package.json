@@ -15,6 +15,7 @@
     "webview-nodejs": "^0.4.3"
   },
   "devDependencies": {
+    "buffer": "^6.0.3",
     "ifdef-loader": "^2.3.2",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
