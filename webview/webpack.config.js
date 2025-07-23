@@ -18,7 +18,16 @@ module.exports = {
 					"ifdef-uncomment-prefix": "// #code "
 				} }
 			]
+		},
+		{
+			test: /\.m?js$/,
+			enforce: 'pre',
+			use: [ 'source-map-loader' ]
 		} ]
+	},
+	optimization: {
+		splitChunks: false,
+		runtimeChunk: false,
 	},
 	resolve: {
 		fallback: {
@@ -32,5 +41,8 @@ module.exports = {
 		new webpack.ProvidePlugin( {
 			process: 'process/browser.js', // .js is needed
 		} ),
+		new webpack.optimize.LimitChunkCountPlugin( {
+			maxChunks: 1, // Forces all code and assets into one chunk
+		} )
 	]
 };
