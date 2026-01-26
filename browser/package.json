@@ -1,15 +1,34 @@
 {
-  "name": "browser",
-  "version": "1.0.0",
-  "description": "brume-client-api browser example",
-  "main": "main.mjs",
+  "name": "brume-client",
+  "version": "2.0.1",
+  "main": "index.js",
   "scripts": {
+    "build": "webpack",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [],
   "author": "",
   "license": "ISC",
+  "description": "",
   "dependencies": {
-    "brume-client-api": "github:boblund/brume-client-api",
-    "brume-web": "github:boblund/brume-web"
+    "browser": "^0.2.6",
+    "brume-ce": "github:boblund/brume-ce#f337039",
+    "brume-client-api": "github:boblund/brume-client-api#69a98fb",
+    "process": "^0.11.10",
+    "simple-peer": "^9.11.1",
+    "webview-nodejs": "^0.4.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.6",
+    "@babel/plugin-transform-modules-commonjs": "^7.27.1",
+    "@babel/preset-env": "^7.28.5",
+    "babel-loader": "^10.0.0",
+    "css-loader": "^7.1.2",
+    "html-webpack-plugin": "^5.6.5",
+    "ifdef-loader": "^2.3.2",
+    "r": "^0.0.5",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.104.1",
+    "webpack-cli": "^6.0.1"
   }
 }

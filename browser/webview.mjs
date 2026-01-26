@@ -1,11 +1,10 @@
-'use strict';
-
+/*** This only works once; disconnecting and trying to connect again fails with ICE channel error ***/
 import { Webview } from 'webview-nodejs';
 import {join} from 'path';
 import {URL} from 'url';
 
 const __dirname = new URL('.', import.meta.url).pathname;
-const htmlFile =  'index.html';
+const htmlFile =  'dist/index.html';
 
 function main() {
 	const w = new Webview(true);
@@ -28,7 +27,7 @@ function main() {
 			get(target, prop) { return target[prop]; },
 			set(target, prop, value) {
 				target[prop] = value;
-				savelocalStorage(JSON.stringify(target)); 
+				savelocalStorage(JSON.stringify(target));
 			},
 		};
 
