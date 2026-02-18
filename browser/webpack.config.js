@@ -13,6 +13,10 @@ module.exports = {
 		chunkLoading: false,
 		clean: true
 	},
+	optimization: {
+		splitChunks: false,
+		runtimeChunk: false,
+	},
 	externals: [
 		// Exclude all .node files from the bundle
 		function( { request }, callback ) {
@@ -22,10 +26,6 @@ module.exports = {
 			callback();
 		}
 	],
-	optimization: {
-		splitChunks: false,
-		runtimeChunk: false,
-	},
 	mode: 'production', //'development', //
 	devtool: false, //'source-map', //
 	resolve: {
@@ -43,7 +43,7 @@ module.exports = {
 		} ),
 		new HtmlWebpackPlugin( {
 			template: 'index.html', // your HTML template file
-			favicon: 'favicon.png', // your favicon file
+			favicon: 'favicon.ico', // your favicon file
 		} )
 	],
 	module: {
