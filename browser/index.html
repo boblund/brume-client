@@ -1,27 +1,32 @@
-<html>
-	<head>
-		<title>Browser Brume</title>
-		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-		<meta charset="UTF-8">
+﻿<html>
+  <head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
-		<link rel="stylesheet" href="./index.css">
+		<title>Brume Client</title>
 	</head>
-	<body>
-		<!--p id="idP"></p-->
-		<div id="dialogDiv" class="dialog" hidden>
-			<p id="dialogMsg"></p>
-			<span style="float: right;">
-				<button id="cancelBtn" class="cancelBtn">Cancel</button>
-				<button id="OKBtn" class="OKBtn">OK</button>
-			</span>
+
+  <body class="hidden" >
+		<spa-nav>
+			<!--a href="#" id="login" style="padding: 6; margin-left: 0.75em; font-size: 20px;">Brume P2P</a-->
+			<!-- if only 1 page in app use the following -->
+			<span id="login" style="padding: 6; margin-left: 0.75em; font-size: 20px; color: white;">Brume Client</span>
+		</spa-nav>
+
+		<div id="pages-container">
+			<div class="login page" data-spa="login">
+				<brume-login></brume-login>
+			</div>
+			<div class="app page"  data-spa="p2p">
+				<div class="row middle">
+					<brume-call id="call"></brume-call>
+					<div class="idp" style="margin-left: auto; margin-right: 1em;"></div>
+				</div>
+				<div class="app-container hidden row top">
+					<div class="output"></div>
+				</div>
+			</div>
+			<ce-dialog></ce-dialog>
 		</div>
-		<!--div id="login" style="display:none"-->
-			<brume-login id="brumeLogin" loaded="false" hidden></brume-login>
-		<!--/div-->
-		<div class="w3-container container" style="display:none" id="app">
-			<brume-call id="call" loaded="false"></brume-call>
-			<div class="w3-cell-row" id="dataArea"></div>
-		</div>
-	</body>
-	<script type="module" src="./main.mjs"></script>
+  </body>
 </html>

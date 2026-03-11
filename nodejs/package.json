@@ -10,8 +10,9 @@
   "license": "ISC",
   "dependencies": {
     "@koush/wrtc": "^0.5.3",
-    "brume-auth": "github:boblund/brume-auth",
-    "brume-client-api": "github:boblund/brume-client-api",
+    "amazon-cognito-identity-js": "^6.3.16",
+    "brume-client-api": "github:boblund/brume-client-api#69a98fb",
+    "simple-peer": "^9.11.1",
     "ws": "^8.18.1"
   }
 }
