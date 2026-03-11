@@ -11,7 +11,7 @@
   "dependencies": {
     "@koush/wrtc": "^0.5.3",
     "amazon-cognito-identity-js": "^6.3.16",
-    "brume-client-api": "github:boblund/brume-client-api#69a98fb",
+    "brume-client-api": "github:boblund/brume-client-api#a18521c",
     "simple-peer": "^9.11.1",
     "ws": "^8.18.1"
   }
