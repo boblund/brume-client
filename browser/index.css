@@ -45,6 +45,7 @@ div[data-spa] {
 
 .app-container {
 	display: flex;
+	flex-direction: column;
 	margin-left: 5px;
 	/*justify-content: flex-start;*/
 }
