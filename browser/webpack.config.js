@@ -13,10 +13,6 @@ module.exports = {
 		chunkLoading: false,
 		clean: true
 	},
-	optimization: {
-		splitChunks: false,
-		runtimeChunk: false,
-	},
 	externals: [
 		// Exclude all .node files from the bundle
 		function( { request }, callback ) {
@@ -26,8 +22,12 @@ module.exports = {
 			callback();
 		}
 	],
-	mode: 'production', //'development', //
-	devtool: false, //'source-map', //
+	optimization: {
+		splitChunks: false,
+		runtimeChunk: false,
+	},
+	mode: 'development', //'production'
+	devtool: 'source-map', //false,
 	resolve: {
 		fallback: {
 			process: require.resolve( 'process/browser' )
@@ -43,19 +43,14 @@ module.exports = {
 		} ),
 		new HtmlWebpackPlugin( {
 			template: 'index.html', // your HTML template file
-			favicon: 'favicon.ico', // your favicon file
+			favicon: 'favicon.png', // your favicon file
 		} )
 	],
 	module: {
 		rules: [
 			{
-				test: /\.css$/, // for CSS files
-				exclude: /common\.css/,
-				issuer: /index\.mjs$/,
-				use: [ 'style-loader', 'css-loader' ], // inject CSS and interpret imports
-			},
-			{
-				test: /common\.css$/,
+				test: /\.css$/,
+				resourceQuery: /stylesheet/,
 				use: [
 					{
 						loader: 'css-loader',
@@ -65,6 +60,11 @@ module.exports = {
 						}
 					}
 				]
+			},
+			{
+				test: /\.css$/,
+				resourceQuery: { not: [ /stylesheet/ ] },
+				use: [ 'style-loader', 'css-loader' ],
 			},
 			{
 				test: /\.(ico|png|svg|jpg|jpeg|gif)$/i, // for favicon and images
