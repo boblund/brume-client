@@ -2,23 +2,32 @@
   <head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+		<!--link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css"-->
 		<title>Brume Client</title>
 	</head>
 
   <body class="hidden" >
 		<spa-nav>
-			<!--a href="#" id="login" style="padding: 6; margin-left: 0.75em; font-size: 20px;">Brume P2P</a-->
-			<!-- if only 1 page in app use the following -->
-			<span id="login" style="padding: 6; margin-left: 0.75em; font-size: 20px; color: white;">Brume Client</span>
+			<!--a href="#" id="home" style="padding: 6; margin-left: 0.75em; font-size: 30px;">&#8962</a-->
+			<a href="#" id="login" style="padding: 6; margin-left: 0.75em; font-size: 30px;">&#8962</a>
+			<a href="#" id="p2p" style="display:none;">p2p</a>
+			<!--button id="logout" style="display:none;">logout</button-->
 		</spa-nav>
 
 		<div id="pages-container">
-			<div class="login page" data-spa="login">
+			<div class="login page center-vertical center-horizontal" data-spa="login">
+				<h4>
+					Welcome to the Brume P2P example.
+					</br>
+					Login or signup at
+					<a href="https://brume.occams.solutions">brume.occams.solutions</a>
+				</h4>
+				</br></br>
 				<brume-login></brume-login>
 			</div>
+
 			<div class="app page"  data-spa="p2p">
-				<div class="row middle">
+				<div class="row">
 					<brume-call id="call"></brume-call>
 					<div class="idp" style="margin-left: auto; margin-right: 1em;"></div>
 				</div>
