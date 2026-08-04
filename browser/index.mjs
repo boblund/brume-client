@@ -1,9 +1,8 @@
 import { Brume } from 'brume-client-api';
-import { app, appCleanup } from './app.mjs';
 import './index.css';
 import SimplePeer from 'simple-peer';
 
-import { BrumeCallCe, BrumeLoginCe, DialogCe, SpaNavCe, brumeStyleSheet } from 'brume-ce';
+import { BrumeCallCe, BrumeLoginCe, DialogCe, SpaNavCe, brumeStyleSheet } from '../../brume-ce/index.mjs';
 customElements.define( 'brume-login', BrumeLoginCe );
 customElements.define( 'brume-call', BrumeCallCe );
 customElements.define( 'ce-dialog', DialogCe );
@@ -21,21 +20,36 @@ const ceDialog = document.querySelector( 'ce-dialog' );
 const divIdp = document.querySelector( 'div.idp' );
 const brumeLogin = document.querySelector( 'brume-login' );
 const loginPage = document.querySelector( 'div.login.page' );
-const appContainers = document.querySelectorAll( 'div.app-container' );
+const appContainer = document.querySelector( 'div.app-container' );
 const divApp = document.querySelector( 'div.app' );
+const nav = document.querySelector( 'spa-nav' );
+
+let brume, ws, token, peer;
 
 async function dialog( type, msg ){ return await ceDialog[ type ]( msg ); }
 
-const apps = [ app ];
-const appsCleanup = [ appCleanup ];
-let brume, ws;
+// app specific code
 
-window.addEventListener( 'load', () => {
-	document.querySelector( 'body' ).classList.remove( 'hidden' );
-} );
+function app( peer, from = undefined ){
+	if( from === undefined ){
+		peer.on( 'connect', () => {
+			peer.send( `Hi ${ peer.peerUsername }` );
+		} );
+	}
+	peer.on( 'data', data => {
+		document.querySelector( '.output' ).innerHTML =
+			`message from ${ peer.peerUsername }: ${ data.toString() }`;
+		if( from !== undefined ) peer.send( `Hi ${ peer.peerUsername }` );
+	} );
+	peer.on( 'close', () => {
+		document.querySelector( '.output' ).innerHTML = '';
+	} );
+
+	//if( from === undefined ) peer.send( `Hi ${ peer.peerUsername }` );
+}
 
 function newPeer( to, initiator = false ){
-	const peer = new SimplePeer( {
+	peer = new SimplePeer( {
 		initiator,
 		trickle: false
 	} );
@@ -51,7 +65,7 @@ function newPeer( to, initiator = false ){
 	peer.peerUsername = to;
 	peer.on( 'connect', () => {
 		brumeCall.connected();
-		appContainers.forEach( ac => { ac.classList.remove( 'hidden' ); } );
+		appContainer.classList.remove( 'hidden' );
 	} );
 	peer.on( 'error', ( e ) => {
 		if ( !e?.message?.includes( 'Close called' ) )
@@ -85,9 +99,7 @@ brumeCall.callListener = async () => {
 	peer.on( 'close', () => {
 		pcCleanup( peer );
 	} );
-	apps.forEach(
-		app => app( peer )
-	);
+	app( peer );
 };
 
 brumeCall.hangupListener = () => { pcCleanup( brumeCall.peer ); };
@@ -101,35 +113,46 @@ async function offerHandler( from, data ){
 	brumeCall.peer = peer;
 	brumeCall.name = from;
 	peer.signal( data );
-	apps.forEach(
-		app => app( peer, from )
-	);
+	app( peer, from );
 }
 
 function pcCleanup( peer ){
 	brumeCall.name = '';
 	brume.setPeer( peer.peerUsername );
 	if( !peer.destroyed ) peer.destroy();
-	peer = null;
-	brumeCall.peer = null;
+	peer = undefined;
+	brumeCall.peer = undefined;
 	brumeCall.disconnected();
-	appContainers.forEach( ac => { ac.classList.add( 'hidden' ); } );
-	appsCleanup.forEach( app => app() );
+	appContainer.classList.add( 'hidden' );
+	if( ws == undefined ){
+		document.querySelector( 'div[data-spa="p2p"]' ).classList.remove( 'active' );
+		nav.shadowRoot.querySelector( '#p2p' ).style.display = 'none';
+		document.querySelector( 'div[data-spa="login"]' ).classList.add( 'active' );
+		nav.shadowRoot.querySelector( '#login' ).style.display = '';
+	}
 }
 
-async function wsCloseListener( e ){
-	Brume.log.info( `Brume ws closed: ${ e.code } ${ e.reason }` );
-	loginPage.classList.add( 'active' );
-	divApp.classList.remove( 'active' );
-	ws = await brume.start( config );
-	ws.addEventListener( 'close', wsCloseListener );
+function wsCloseListener( e ){
+	ws = undefined;
 }
+
+window.addEventListener( 'load', () => {
+	document.querySelector( 'body' ).classList.remove( 'hidden' );
+} );
 
 loginPage.classList.add( 'active' );
-const token = await brumeLogin.getToken();
+nav.shadowRoot.addEventListener( 'click', ( e ) => {
+	if( e.target.id === 'logout' && ws ) ws.close();
+} );
+token = await brumeLogin.getToken();
+const navChildren = nav.children;
 const config = { "url": "wss://brume.occams.solutions/Prod", token };
+nav.shadowRoot.getElementById( 'login' ).style.display = 'none';
 loginPage.classList.remove( 'active' );
 divApp.classList.add( 'active' );
+//nav.shadowRoot.getElementById( 'p2p' ).click();
+nav.shadowRoot.getElementById( 'p2p' ).style.display = '';
+//nav.shadowRoot.getElementById( 'logout' ).style.display = '';
 brume = new Brume( { WebSocket, offerHandler } );
 try{
 	ws = await brume.start( config );

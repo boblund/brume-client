@@ -12,7 +12,7 @@
   "description": "",
   "dependencies": {
     "browser": "^0.2.6",
-    "brume-ce": "github:boblund/brume-ce#f337039",
+    "brume-ce": "github:boblund/brume-ce#906dacd",
     "brume-client-api": "github:boblund/brume-client-api#a18521c",
     "process": "^0.11.10",
     "simple-peer": "^9.11.1",
