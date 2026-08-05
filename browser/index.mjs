@@ -2,7 +2,7 @@ import { Brume } from 'brume-client-api';
 import './index.css';
 import SimplePeer from 'simple-peer';
 
-import { BrumeCallCe, BrumeLoginCe, DialogCe, SpaNavCe, brumeStyleSheet } from '../../brume-ce/index.mjs';
+import { BrumeCallCe, BrumeLoginCe, DialogCe, SpaNavCe, brumeStyleSheet } from './brume-ce/index.mjs';
 customElements.define( 'brume-login', BrumeLoginCe );
 customElements.define( 'brume-call', BrumeCallCe );
 customElements.define( 'ce-dialog', DialogCe );
@@ -146,7 +146,11 @@ nav.shadowRoot.addEventListener( 'click', ( e ) => {
 } );
 token = await brumeLogin.getToken();
 const navChildren = nav.children;
-const config = { "url": "wss://brume.occams.solutions/Prod", token };
+const url = window.LOCAL_BRUME
+	? `ws://${ window.location.host }`
+	: "wss://brume.occams.solutions/Prod";
+
+const config = { url, token };
 nav.shadowRoot.getElementById( 'login' ).style.display = 'none';
 loginPage.classList.remove( 'active' );
 divApp.classList.add( 'active' );
