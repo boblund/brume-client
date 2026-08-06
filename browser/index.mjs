@@ -2,7 +2,7 @@ import { Brume } from 'brume-client-api';
 import './index.css';
 import SimplePeer from 'simple-peer';
 
-import { BrumeCallCe, BrumeLoginCe, DialogCe, SpaNavCe, brumeStyleSheet } from './brume-ce/index.mjs';
+import { BrumeCallCe, BrumeLoginCe, DialogCe, SpaNavCe, brumeStyleSheet } from 'brume-ce';
 customElements.define( 'brume-login', BrumeLoginCe );
 customElements.define( 'brume-call', BrumeCallCe );
 customElements.define( 'ce-dialog', DialogCe );
