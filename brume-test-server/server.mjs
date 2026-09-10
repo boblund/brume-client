@@ -8,13 +8,13 @@ import jwt from 'jsonwebtoken';
 // --- CLI args: node server.js <port> <directory> ---
 const [ , , portArg, dirArg ] = process.argv;
 
-if ( !portArg || !dirArg ) {
-	console.error( 'Usage: node server.js <port> <directory>' );
+if ( !portArg ) {
+	console.error( 'Usage: node server.js <port> [<http_files_directory>]' );
 	process.exit( 1 );
 }
 
 const PORT = parseInt( portArg, 10 );
-const ROOT = normalize( dirArg );
+const ROOT = dirArg ? normalize( dirArg ) : undefined;
 
 const MIME_TYPES = {
 	'.html': 'text/html',
@@ -30,22 +30,24 @@ const MIME_TYPES = {
 };
 
 // --- HTTP static file server ---
-const server = createServer( async ( req, res ) => {
+const server = createServer( !ROOT ? undefined : async ( req, res ) => {
 	try {
 		let urlPath = decodeURIComponent( req.url.split( '?' )[0] );
 		if ( urlPath === '/' ) urlPath = '/index.html';
 
 		// Resolve and confine to ROOT (basic path traversal guard)
 		const filePath = normalize( join( ROOT, urlPath ) );
-		if ( !filePath.startsWith( ROOT ) ) {
+		/*if ( !filePath.startsWith( ROOT ) ) {
 			res.writeHead( 403 );
 			res.end( 'Forbidden' );
 			return;
-		}
+		}*/
 
 		let data = await readFile( filePath );
-		if( urlPath == '/index.html' ) data = data.toString( 'utf8' ).replace(
-			'window.LOCAL_BRUME = undefined', `window.LOCAL_BRUME = true` );
+		if( urlPath == '/index.html' && process.env?.LOCAL_BRUME )
+			data = data.toString( 'utf8' ).replace(
+				'window.LOCAL_BRUME = undefined', `window.LOCAL_BRUME = true`
+			);
 		const ext = extname( filePath ).toLowerCase();
 		res.writeHead( 200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' } );
 		res.end( data );
@@ -70,7 +72,7 @@ const nameToWs = new Map(); // name -> ws
 
 wss.on( 'connection', ( ws, request ) => {
 	const { searchParams } = new URL( request.url, `http://${ request.headers.host }` );
-	const token = searchParams.get( 'token' );
+	const token = request.headers?.token || searchParams.get( 'token' );
 
 	if ( !token ) {
 		ws.close( 1008, 'Missing token' );
@@ -125,7 +127,7 @@ wss.on( 'connection', ( ws, request ) => {
 			return;
 		}
 
-		targetWs.send( JSON.stringify( { from, data } ) );
+		targetWs.send( JSON.stringify( { from, ...data } ) );
 	} );
 
 	ws.on( 'close', () => {
@@ -139,7 +141,11 @@ wss.on( 'connection', ( ws, request ) => {
 	} );
 } );
 
-server.listen( PORT, () => {
+server.on( 'error', ( err ) => {
+	console.error( 'Could not start server:', err );
+} );
+
+server.listen( PORT, '127.0.0.1', () => {
 	console.log( `Serving "${ ROOT }" at http://localhost:${ PORT }` );
 	console.log( `WebSocket available at ws://localhost:${ PORT }` );
 } );
